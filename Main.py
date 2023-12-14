@@ -51,8 +51,8 @@ def update_state(state, packet_loss_rate, feedback, power_level):
             # Number of successfully delivered packet on each interface
             state[k, i+2] = feedback[k, i]
 
-        state[k,4] = power_level[0]
-        state[k,5] = power_level[1]
+        state[k,4] = power_level[0][k]
+        state[k,5] = power_level[1][k]
     return state
 
 # CREATE ACTION
@@ -65,7 +65,7 @@ def initialize_action():
     # Choose power level
     power_level = np.random.randint(0, A, (NUM_OF_DEVICE,2))
 
-    action = np.ndarray(shape=(NUM_OF_DEVICE,3))
+    action = np.ndarray(shape=(NUM_OF_DEVICE,3),dtype=int)
     for i in range(NUM_OF_DEVICE):
         action[i] = interface[i],power_level[i,0],power_level[i,1]
     return action
@@ -156,14 +156,24 @@ def compute_power_level(action,rate):
     power_level_sub = action[:,1]
     power_level_mW = action[:,2]
     rate_sub,rate_mW = rate
+    rate_sub = list(rate_sub)
+    rate_mW = list(rate_mW)
     best_rate_device_sub = rate_sub.index(max(rate_sub))
     best_rate_device_mW = rate_mW.index(max(rate_mW))
 
     while(not env.power_constraint_satisfaction(power_level_sub)):
-        power_level_sub[best_rate_device_sub]-=1
+        if(power_level_sub[best_rate_device_sub]>1):
+            power_level_sub[best_rate_device_sub]-=1
+        else:
+            rate_sub[best_rate_device_sub] = -1
+            best_rate_device_sub = rate_sub.index(max(rate_sub))
 
     while(not env.power_constraint_satisfaction(power_level_mW)):
-        power_level_mW[best_rate_device_mW]-=1
+        if(power_level_mW[best_rate_device_mW]>1):
+            power_level_mW[best_rate_device_mW]-=1
+        else:
+            rate_mW[best_rate_device_mW] = -1
+            best_rate_device_mW = rate_mW.index(max(rate_mW))
 
     return [power_level_sub,power_level_mW]
 
@@ -218,14 +228,16 @@ def initialize_reward(state, action):
 
 # Update reward table
 def update_reward(state, action, old_reward, num_of_send_packet, num_of_received_packet, frame_num):
-    state_action = np.insert(state, 4, action, axis=1)
+    state_action = np.insert(state, 6, action.transpose(), axis=1)
     state_action = tuple([tuple(row) for row in state_action])
+    
     if (not (state_action in old_reward)):
         reward = compute_reward(state, num_of_send_packet,
                                 num_of_received_packet, 0, frame_num)
     else:
         reward = compute_reward(
             state, num_of_send_packet, num_of_received_packet, old_reward.get(state_action), frame_num)
+
     old_reward.update({state_action: reward})
     return old_reward
 
@@ -305,7 +317,7 @@ def update_Q_table(Q_table, alpha, reward, next_state):
         max_Q = -np.Infinity
         next_state_exist = False
         for i in Q_table:
-            state_i = np.asarray(i)[:, 0:4]
+            state_i = np.asarray(i)[:, 0:6]
             if ((np.allclose(state_i, next_state, rtol=0, atol=0)) & (Q_table[i] > max_Q)):
                 max_Q = Q_table[i]
                 next_state_exist = True
@@ -376,7 +388,7 @@ def generate_h_tilde(mu, sigma, num_of_frame):
     return h_tilde
 
 # Achievable rate
-def compute_r(device_positions, h_tilde, allocation):
+def compute_rate(device_positions, h_tilde, allocation,power_level_list):
     r = []
     r_sub = np.zeros(NUM_OF_DEVICE)
     r_mW = np.zeros(NUM_OF_DEVICE)
@@ -387,12 +399,14 @@ def compute_r(device_positions, h_tilde, allocation):
         mW_beam_index = allocation[1][k]
         if (sub_channel_index != -1):
             h_sub_k = env.compute_h_sub(
-                device_positions, k, h_tilde_sub[k, sub_channel_index])
-            r_sub[k] = env.r_sub(h_sub_k, device_index=k)
+                device_positions,device_index=k,h_tilde=h_tilde_sub[k, sub_channel_index])
+            p = env.POWER_SET[power_level_list[0][k]]
+            r_sub[k] = env.r_sub(h_sub_k, device_index=k,power=p)
         if (mW_beam_index != -1):
             h_mW_k = env.compute_h_mW(device_positions, device_index=k,
                                       eta=5*np.pi/180, beta=0, h_tilde=h_tilde_mW[k, mW_beam_index])
-            r_mW[k] = env.r_mW(h_mW_k, device_index=k)
+            p = env.POWER_SET[power_level_list[0][k]]
+            r_mW[k] = env.r_mW(h_mW_k, device_index=k,power=p)
 
     r.append(r_sub)
     r.append(r_mW)
@@ -432,9 +446,9 @@ packet_loss_rate = np.zeros(shape=(NUM_OF_DEVICE, 2))
 # Generate h_tilde for all frame
 h_tilde = generate_h_tilde(0, 1, T)
 h_tilde_t = h_tilde[0]
-adverage_r = compute_r(device_positions, h_tilde_t,
-                       allocation=allocate(action))
-r = compute_r(device_positions, h_tilde_t, allocation)
+adverage_r = compute_rate(device_positions, h_tilde_t,
+                       allocation=allocate(action),power_level_list=power_level)
+r = compute_rate(device_positions, h_tilde_t, allocation,power_level_list=power_level)
 
 state_plot=[]
 action_plot=[]
@@ -470,7 +484,7 @@ for frame in range(1, T):
     
 
     # Get feedback
-    r = compute_r(device_positions, h_tilde_t, allocation)
+    r = compute_rate(device_positions, h_tilde_t, allocation,power_level)
     l_max = compute_l_max(r)
     l_sub_max = l_max[0]
     l_mW_max = l_max[1]
@@ -489,7 +503,7 @@ for frame in range(1, T):
     state_action = tuple([tuple(row) for row in state_action])
     reward_plot.append(reward.get(state_action))
     next_state = update_state(state, packet_loss_rate,
-                              number_of_received_packet)
+                              number_of_received_packet,power_level)
 
     # Generate mask J
     J = np.random.poisson(1, I)

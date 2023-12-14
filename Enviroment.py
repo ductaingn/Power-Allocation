@@ -83,12 +83,7 @@ def initialize_devices_pos():
     return list_of_devices
 
 
-# The list contains positions of devices
-list_of_devices = initialize_devices_pos()
-
 # Path loss model
-
-
 def path_loss_sub(distance):
     return 38.5 + 30*(np.log10(distance))
 
@@ -145,37 +140,16 @@ def compute_h_mW(list_of_devices, device_index, eta, beta, h_tilde):
     return np.power(np.abs(h), 2)
 
 
-# return a matrix of channel coefficient h between device k and AP on subchannel n
-def compute_devices_h_sub(list_of_devices, h_tilde):
-    list_of_devices_h = np.matrix(
-        np.zeros([NUM_OF_DEVICE, NUM_OF_SUB_CHANNEL]))
-    for k in range(NUM_OF_DEVICE):
-        for n in range(NUM_OF_SUB_CHANNEL):
-            list_of_devices_h[k, n] = compute_h_sub(
-                list_of_devices, k, h_tilde)
-    return list_of_devices_h
-# return a matrix of channel coefficient h between device k and AP on beam m
-
-
-def compute_devices_h_mW(list_of_devices, eta, beta, h_tilde):
-    list_of_devices_h = np.matrix(
-        np.zeros([NUM_OF_DEVICE, NUM_OF_SUB_CHANNEL]))
-    for k in range(NUM_OF_DEVICE):
-        for m in range(NUM_OF_BEAM):
-            h_tilde_k = h_tilde[k]
-            list_of_devices_h[k, m] = compute_h_mW(
-                list_of_devices, k, eta, beta, h_tilde[k, m])
-    return list_of_devices_h
-
 # check if sum of all power on interface <= P_max ?
 def power_constraint_satisfaction(power_level_list):
     sum = 0
     for i in power_level_list:
         sum += POWER_SET[i]
+    print(sum,' ',P_MAX)
     return sum<=P_MAX
 
 # gamma_sub(h,k,n) (t) is the Signal to Interference-plus-Noise Ratio (SINR) from AP to device k on subchannel n with channel coefficient h
-def gamma_sub(h, power=P):
+def gamma_sub(h,AP_index=1, power=P):
     power = h*power
     interference_plus_noise = W_SUB*SIGMA_SQR
     # for b in range(NUM_OF_AP):
@@ -186,7 +160,7 @@ def gamma_sub(h, power=P):
 # gamma_mW(k,m) (t) is the Signal to Interference-plus-Noise Ratio (SINR) from AP to device k on beam m with channel coeffiction h
 
 
-def gamma_mW(h, power=P):
+def gamma_mW(h,AP_index=1, power=P):
     power = h*power
     interference_plus_noise = W_MW*SIGMA_SQR
     # for b in range(NUM_OF_AP):
@@ -197,12 +171,12 @@ def gamma_mW(h, power=P):
 
 # achievable data rate r_bkf (t) for the link between
 # AP b, device k and for application f using bandwidth Wf at scheduling frame t
-def r_sub(h, device_index):
-    return W_SUB*np.log2(1+gamma_sub(h, device_index))
+def r_sub(h, device_index,power):
+    return W_SUB*np.log2(1+gamma_sub(h,power))
 
 
-def r_mW(h, device_index):
-    return W_MW*np.log2(1+gamma_sub(h, device_index))
+def r_mW(h, device_index,power):
+    return W_MW*np.log2(1+gamma_sub(h,power))
 
 
 # Maximum number of packets of size d bits that can be received successfully at device k on interface v
