@@ -83,7 +83,7 @@ def chose_action(state, Q_table):
             state_i = np.asarray(i)[:, 0:6]
             if ((np.allclose(state_i, state, rtol=0, atol=0)) & (Q_table.get(i) > max_Q)):
                 max_Q = Q_table.get(i)
-                i = np.array(i)
+                i = np.array(i,dtype=int)
                 action = i[:, 6:9]
         return action
 

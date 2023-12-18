@@ -32,8 +32,8 @@ P_MIN = pow(10,5/10)
 P_MAX = pow(10,38/10)
 # Power set
 POWER_SET = [0,P_MIN]
-for i in range(2,A):
-    POWER_SET.append(P_MIN*pow(P_MAX/P_MIN,1/(A-i)))
+for i in range(3,A+1):
+    POWER_SET.append((P_MAX-P_MIN)*i/A)
 # Frame Duration T_s
 T = 1
 # Packet size D = 8 bit
@@ -145,7 +145,6 @@ def power_constraint_satisfaction(power_level_list):
     sum = 0
     for i in power_level_list:
         sum += POWER_SET[i]
-    print(sum,' ',P_MAX)
     return sum<=P_MAX
 
 # gamma_sub(h,k,n) (t) is the Signal to Interference-plus-Noise Ratio (SINR) from AP to device k on subchannel n with channel coefficient h
