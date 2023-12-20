@@ -71,13 +71,13 @@ def initialize_devices_pos():
         elif(i==2):
             x = rd.uniform(0,length)
             y = rd.uniform(0,width)
-            while(distance_to_AP(list_of_devices[0]) > distance_to_AP([x,y])):
+            while(distance_to_AP(list_of_devices[0]) > 1.5*distance_to_AP([x,y])):
                 x = rd.uniform(0,length)
                 y = rd.uniform(0,width)
 
         else:
-            x = rd.uniform(0,length)
-            y = rd.uniform(0,width)
+            x = rd.uniform(30,60)
+            y = rd.uniform(30,60)
 
         list_of_devices.append((x,y))
     return list_of_devices
