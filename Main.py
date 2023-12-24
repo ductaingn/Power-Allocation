@@ -15,7 +15,7 @@ RHO_MAX = 0.1
 # L_k
 L_k = 6
 # Number of Frame
-T = 30000
+T = 10000
 # Risk control
 LAMBDA_P = 0.5
 # Ultility function paremeter
@@ -222,26 +222,6 @@ def compute_packet_loss_rate(frame_num, old_packet_loss_rate, received_packet_nu
 
 
 # CREATE REWARD
-# Initialize a reward table as a dictionary,
-def initialize_reward(state, action):
-    reward = {}
-    return reward
-
-# Update reward table
-def update_reward(state, action, old_reward, num_of_send_packet, num_of_received_packet, frame_num):
-    state_action = np.insert(state, 6, action.transpose(), axis=1)
-    state_action = tuple([tuple(row) for row in state_action])
-    
-    if (not (state_action in old_reward)):
-        reward = compute_reward(state, num_of_send_packet,
-                                num_of_received_packet, 0, frame_num)
-    else:
-        reward = compute_reward(state, num_of_send_packet, 
-                                num_of_received_packet, old_reward.get(state_action), frame_num)
-
-    old_reward.update({state_action: reward})
-    return old_reward
-
 # Compute reward of one pair of (state, action)
 def compute_reward(state, num_of_send_packet, num_of_received_packet, old_reward, frame_num):
     sum = 0
@@ -308,29 +288,30 @@ def u(x):
     return -np.exp(BETA*x)
 
 
-def update_Q_table(Q_table, alpha, reward, next_state,Q_max_table):
-    # reward is updated before Q-table so it already has all Q-table key and key(state_action) that Q-table has not have yet
-    for state_action in reward:
-        if (not (state_action in Q_table)):
-            Q_table.update({state_action: 0})
+def update_Q_table(Q_table, alpha, old_reward,state,action,next_state,Q_max_table):
+    state_action = np.insert(state, 6, action.transpose(), axis=1)
+    state_action = tuple([tuple(row) for row in state_action])
+    if(not state_action in Q_table):
+        Q_table.update({state_action:0})
 
-        # Find max(Q(s(t+1),a)
-        max_Q = 0
-        next_state = tuple([tuple(row) for row in next_state])
-        if(next_state in Q_max_table):
-            max_Q = Q_max_table[next_state]
+    # Find max(Q(s(t+1),a)
+    max_Q = 0
+    next_state = tuple([tuple(row) for row in next_state])
+    if(next_state in Q_max_table):
+        max_Q = Q_max_table[next_state]
 
-        if (alpha.get(state_action) == None):
-            alpha_state_action = 0
-        else:
-            alpha_state_action = alpha.get(state_action)
+    if (alpha.get(state_action) == None):
+        alpha_state_action = 0
+    else:
+        alpha_state_action = alpha.get(state_action)
 
-        Q_table[state_action] = Q_table[state_action] + alpha_state_action * (u(reward.get(state_action) + GAMMA *
-             max_Q - Q_table[state_action]) - X0)
-        
-        state = tuple([tuple(row) for row in np.array(state_action)[:,0:6]])
-        if((not (state in Q_max_table)) or Q_table[state_action] > Q_max_table[state]):
-            Q_max_table[state] = Q_table[state_action]
+    Q_table[state_action] = Q_table[state_action] + alpha_state_action * (u(old_reward + GAMMA *
+            max_Q - Q_table[state_action]) - X0)
+    
+    state = tuple([tuple(row) for row in np.array(state)])
+    if((not (state in Q_max_table)) or Q_table[state_action] > Q_max_table[state]):
+        Q_max_table[state] = Q_table[state_action]
+
 
     return Q_table
 
@@ -432,7 +413,7 @@ device_positions = env.initialize_devices_pos()
 # env.plot_position(ap_pos=env.AP_POSITION, device_pos=device_positions)
 state = initialize_state()
 action = initialize_action()
-reward = initialize_reward(state, action)
+reward = 0
 allocation = allocate(action)
 power_level = compute_power_level(action,rate=[np.zeros(NUM_OF_DEVICE),np.zeros(NUM_OF_DEVICE)])
 Q_tables = initialize_Q_tables()
@@ -453,6 +434,7 @@ action_plot=[]
 reward_plot=[]
 number_of_sent_packet_plot=[]
 number_of_received_packet_plot=[]
+power_level_plot = []
 
 chose_action_time = 0
 perform_action_time = 0
@@ -495,7 +477,7 @@ for frame in range(1, T):
     number_of_send_packet = compute_number_of_send_packet(
         action, l_sub_max_estimate, l_mW_max_estimate)
     power_level = compute_power_level(action,rate=adverage_r)
-    
+    power_level_plot.append(power_level)
     number_of_sent_packet_plot.append(number_of_send_packet)
     perform_action_time += time.time()-perform_action_start_time
     
@@ -516,10 +498,8 @@ for frame in range(1, T):
 
     # Compute reward
     compute_reward_start_time = time.time()
-    reward = update_reward(state, action, reward, number_of_send_packet, number_of_received_packet, frame)
-    state_action = np.insert(state, 6, action.transpose(), axis=1)
-    state_action = tuple([tuple(row) for row in state_action])
-    reward_plot.append(reward.get(state_action))
+    reward = compute_reward(state,number_of_send_packet,number_of_received_packet,reward,frame)
+    reward_plot.append(reward)
     next_state = update_state(state, packet_loss_rate,number_of_received_packet,power_level)
     compute_reward_time += time.time() - compute_reward_start_time
 
@@ -528,7 +508,7 @@ for frame in range(1, T):
     for i in range(I):
         if (J[i] == 1):
             update_Q_start_time = time.time()
-            Q_table = update_Q_table(Q_tables[i], alpha[i], reward, next_state,Q_max_table[i])
+            Q_table = update_Q_table(Q_tables[i],alpha[i],reward,state,action,next_state,Q_max_table[i])
             V[i] = update_V(V[i], Q_table)
             alpha[i] = update_alpha(alpha[i], V[i])
             update_Q_time += time.time()-update_Q_start_time
@@ -555,5 +535,4 @@ IO.save(feedback_time,'feedback_time')
 IO.save(compute_reward_time,'compute_reward_time')
 IO.save(update_Q_time,'update_Q_time')
 IO.save(run_time,'run_time')
-#plot packet loss rate
-#plot interface usage
+IO.save(power_level_plot,'power_level')

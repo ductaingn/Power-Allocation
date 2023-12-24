@@ -203,16 +203,3 @@ def packet_loss_rate(t, old_packet_loss_rate, packet_successful_rate, l_kv):
             1/t)*((t-1)*old_packet_loss_rate + (1-packet_successful_rate))
         return packet_loss_rate
 
-# Plot APs and devices Position
-
-
-def plot_position(ap_pos, device_pos):
-    plt.title("AP and devices Position")
-    device_x, device_y = zip(*device_pos)
-    plt.scatter(ap_pos[0], ap_pos[1], cmap='hot')
-    plt.scatter(device_x, device_y, cmap='hot')
-    plt.xlim([0,90])
-    plt.ylim([0,90])
-    plt.grid()
-    plt.show()
-
