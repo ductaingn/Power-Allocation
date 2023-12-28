@@ -73,12 +73,10 @@ def plot_power_level(device=1):
 
 def plot_interface_usage():
     action = IO.load('action')
-    usage = [[0,0,0],
-                [0,0,0],
-                [0,0,0]]
+    usage = np.zeros(shape=(env.NUM_OF_DEVICE,3))
     
     for i in range(len(action)):
-        for j in range(3):
+        for j in range(env.NUM_OF_DEVICE):
             usage[j][action[i][j,0]]+=1
     usage = np.divide(usage,len(action)/100)
     usage = usage.transpose()
