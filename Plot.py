@@ -2,9 +2,8 @@ import numpy as np
 import IO
 import matplotlib.pyplot as plt
 import Enviroment as env
-import itertools
 
-def plot_packet_loss_rate(device='all'):
+def scatter_packet_loss_rate(device='all'):
     received = IO.load('number_of_received_packet')
     r1 = []
     r2 = []
@@ -47,21 +46,23 @@ def plot_position():
     ap_pos = env.AP_POSITION
     device_pos = IO.load('device_positions')
     plt.title("AP and devices Position")
-    device_x, device_y = zip(*device_pos)
-    plt.scatter(ap_pos[0], ap_pos[1], cmap='hot')
-    plt.scatter(device_x, device_y, color = ['r','g','b'])
+    plt.scatter(ap_pos[0], ap_pos[1], color = 'b',label = 'AP')
+    for i in range(len(device_pos)):
+        plt.scatter(device_pos[i][0],device_pos[i][1], color = 'r',label = f"Device {i+1}")
+        
     plt.xlim([0,90])
     plt.ylim([0,90])
+    plt.legend(loc='upper right')
     plt.grid()
     plt.show()
 
-def plot_power_level(device=0):
+def plot_power_level(device=1):
     power_level = IO.load('power_level')
     pow_sub = []
     pow_mW = []
     for i in range(len(power_level)):
-        pow_sub.append(power_level[i][0][device])
-        pow_mW.append(power_level[i][1][device])
+        pow_sub.append(power_level[i][0][device-1])
+        pow_mW.append(power_level[i][1][device-1])
     plt.plot(pow_sub,label='Power Level of Sub6-GHz')
     plt.plot(pow_mW,label='Power Level of Mm-Wave')
     plt.legend()
@@ -80,7 +81,7 @@ def plot_interface_usage():
         for j in range(3):
             usage[j][action[i][j,0]]+=1
     usage = np.divide(usage,len(action)/100)
-    
+    usage = usage.transpose()
     fig,ax = plt.subplots(layout='constrained')
     x = np.arange(3)
     width = 0.2
