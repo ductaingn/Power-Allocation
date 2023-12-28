@@ -435,6 +435,7 @@ reward_plot=[]
 number_of_sent_packet_plot=[]
 number_of_received_packet_plot=[]
 power_level_plot = []
+rate_plot = []
 
 chose_action_time = 0
 perform_action_time = 0
@@ -488,6 +489,7 @@ for frame in range(1, T):
     l_max = compute_l_max(r)
     l_sub_max = l_max[0]
     l_mW_max = l_max[1]
+    rate_plot.append(r)
 
     number_of_received_packet = receive_feedback(number_of_send_packet, l_sub_max, l_mW_max)
     packet_loss_rate = compute_packet_loss_rate(
@@ -535,4 +537,5 @@ IO.save(feedback_time,'feedback_time')
 IO.save(compute_reward_time,'compute_reward_time')
 IO.save(update_Q_time,'update_Q_time')
 IO.save(run_time,'run_time')
+IO.save(rate_plot,'rate')
 IO.save(power_level_plot,'power_level')
