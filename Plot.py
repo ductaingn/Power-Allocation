@@ -46,9 +46,12 @@ def plot_position():
     ap_pos = env.AP_POSITION
     device_pos = IO.load('device_positions')
     plt.title("AP and devices Position")
-    plt.scatter(ap_pos[0], ap_pos[1], color = 'b',label = 'AP')
+    plt.scatter(ap_pos[0], ap_pos[1], color = 'r',marker = 's',label = 'AP')
     for i in range(len(device_pos)):
-        plt.scatter(device_pos[i][0],device_pos[i][1], color = 'r',label = f"Device {i+1}")
+        if(i == 1 or i == 5):
+            plt.scatter(1/2*device_pos[i][0]+1/2*ap_pos[0],1/2*device_pos[i][1]+1/2*ap_pos[1], color = 'black',label = 'Obstacle',marker = 'd')
+        plt.scatter(device_pos[i][0],device_pos[i][1], color = 'b')
+        plt.text(device_pos[i][0]-0.4,device_pos[i][1]+0.8,f"D{i+1}",fontsize=12)
         
     plt.xlim([0,90])
     plt.ylim([0,90])

@@ -12,11 +12,11 @@ length_of_area = length/number_of_area_per_row
 
 # Number of APs
 NUM_OF_AP = 1
-# Number of Devices
-NUM_OF_DEVICE = 3
+# Number of Devices K
+NUM_OF_DEVICE = 10 
 # Number of Sub-6Ghz channels N and mmWave beam M
-NUM_OF_SUB_CHANNEL = 4
-NUM_OF_BEAM = 4
+NUM_OF_SUB_CHANNEL = 16
+NUM_OF_BEAM = 16
 # Transmit Power P_sub = P_mW = P ~ 5dBm
 P = pow(10, 5/10)
 # Noise Power sigma^2 ~ -169dBm/Hz
@@ -125,7 +125,7 @@ def compute_h_sub(list_of_devices, device_index, h_tilde):
 
 def compute_h_mW(list_of_devices, device_index, eta, beta, h_tilde):
     # device blocked by obstacle
-    if (device_index == 1 or device_index == 6):
+    if (device_index == 1 or device_index == 5):
         path_loss = path_loss_mw_nlos(
             distance_to_AP(list_of_devices[device_index]))
         h = G(eta, beta)*np.abs(h_tilde) * \

@@ -6,10 +6,10 @@ import time
 
 # Number of APs
 NUM_OF_AP = 1
-# Number of Devices
-NUM_OF_DEVICE = 3
+# Number of Devices K
+NUM_OF_DEVICE = 10
 # Number of Sub-6GHz channels, Number of MmWave beams
-N = M = 4
+N = M = 16
 # Maximum Packet Loss Rate (PLR Requirement)
 RHO_MAX = 0.1
 # L_k
