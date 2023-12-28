@@ -71,13 +71,13 @@ def initialize_devices_pos():
         elif(i==2):
             x = rd.uniform(0,length)
             y = rd.uniform(0,width)
-            while(distance_to_AP(list_of_devices[0]) > distance_to_AP([x,y])):
+            while(distance_to_AP(list_of_devices[0]) > 1.5*distance_to_AP([x,y])):
                 x = rd.uniform(0,length)
                 y = rd.uniform(0,width)
 
         else:
-            x = rd.uniform(0,length)
-            y = rd.uniform(0,width)
+            x = rd.uniform(30,60)
+            y = rd.uniform(30,60)
 
         list_of_devices.append((x,y))
     return list_of_devices
@@ -202,17 +202,4 @@ def packet_loss_rate(t, old_packet_loss_rate, packet_successful_rate, l_kv):
         packet_loss_rate = (
             1/t)*((t-1)*old_packet_loss_rate + (1-packet_successful_rate))
         return packet_loss_rate
-
-# Plot APs and devices Position
-
-
-def plot_position(ap_pos, device_pos):
-    plt.title("AP and devices Position")
-    device_x, device_y = zip(*device_pos)
-    plt.scatter(ap_pos[0], ap_pos[1], cmap='hot')
-    plt.scatter(device_x, device_y, cmap='hot')
-    plt.xlim([0,90])
-    plt.ylim([0,90])
-    plt.grid()
-    plt.show()
 
