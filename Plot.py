@@ -74,6 +74,18 @@ def plot_power_level(device=1):
     plt.title(f'Power Level of Device {device}')
     plt.show()
 
+def plot_action(device=1):
+    action = IO.load('action')
+    plot = []
+    for i in range(len(action)):
+        plot.append(action[i][device-1,0])
+
+    plt.plot(plot)
+    plt.title(f'Action of device {plot}')
+    plt.xlabel('Frame')
+    plt.ylabel('Action')
+    plt.show()
+
 def plot_interface_usage():
     action = IO.load('action')
     usage = np.zeros(shape=(env.NUM_OF_DEVICE,3))
@@ -84,11 +96,11 @@ def plot_interface_usage():
     usage = np.divide(usage,len(action)/100)
     usage = usage.transpose()
     fig,ax = plt.subplots(layout='constrained')
-    x = np.arange(3)
+    x = np.arange(env.NUM_OF_DEVICE)
     width = 0.2
     multiplier = 0
     interfaces = ['Sub-6GHz','mmWave','Both']
-    labels = ['Device 1','Device 2','Device 3']
+    labels = [f'Device {i+1}' for i in range(env.NUM_OF_DEVICE)]
 
     for u in usage:
         offset = width*multiplier
@@ -101,3 +113,17 @@ def plot_interface_usage():
     plt.legend(interfaces,loc='upper right',ncols=3)
     plt.show()
                 
+def plot_rate(device=1):
+    rate = IO.load('rate')
+    sub = []
+    mW = []
+    for i in range(len(rate)):
+        sub.append(rate[i][0][device-1])
+        mW.append(rate[i][1][device-1])
+    
+    plt.plot(sub,label='Rate over Sub6-GHz')
+    plt.plot(mW,label='Rate over mmWave')
+    plt.xlabel('Frame')
+    plt.ylabel('Rate')
+    plt.title(f'Rate of device {device}')
+    plt.show()
