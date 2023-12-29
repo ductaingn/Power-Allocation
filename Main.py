@@ -162,6 +162,13 @@ def compute_power_level(action,rate):
     best_rate_device_sub = rate_sub.index(max(rate_sub))
     best_rate_device_mW = rate_mW.index(max(rate_mW))
 
+    for k in range(env.NUM_OF_DEVICE):
+        match(action[k][0]):
+            case 0:
+                power_level_mW[k]=0
+            case 1:
+                power_level_mW[k]=0
+                
     while(not env.power_constraint_satisfaction(power_level_sub)):
         if(power_level_sub[best_rate_device_sub]>1):
             power_level_sub[best_rate_device_sub]-=1

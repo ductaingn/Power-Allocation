@@ -5,30 +5,27 @@ import Enviroment as env
 
 def scatter_packet_loss_rate(device='all'):
     received = IO.load('number_of_received_packet')
-    r1 = []
-    r2 = []
-    r3 = []
-    for i in range(len(received)):
-        r1.append(1-(received[i][0,0]+received[i][0,1])/6)
-        r2.append(1-(received[i][1,0]+received[i][1,1])/6)
-        r3.append(1-(received[i][2,0]+received[i][2,1])/6)
 
     x = np.arange(len(received))
-    match(device):
-        case 1:
-            plt.scatter(x=x, y=r1)
-            plt.title(f'Packet loss rate of device {device}')
-        case 2:
-            plt.scatter(x=x, y=r2)
-            plt.title(f'Packet loss rate of device {device}')
-        case 3:
-            plt.scatter(x=x, y=r3)
-            plt.title(f'Packet loss rate of device {device}')
-        case _:
-            plt.scatter(x=x, y=r1,label='Device 1')
-            plt.scatter(x=x, y=r2,label='Device 2')
-            plt.scatter(x=x, y=r3,label='Device 3')
-            plt.title(f'Packet loss rate of devices') 
+
+    if(device!= 'all'):
+        plr = []
+        for i in range(len(received)):
+            plr.append(1-(received[i][device-1,0]+received[i][device-1,1])/6)
+            
+        plt.scatter(x=x, y=plr[device-1])
+        plt.title(f'Packet loss rate of device {device}')
+
+    else:
+        plr = np.zeros(shape=(env.NUM_OF_DEVICE,len(received)))
+        for i in range(len(received)):
+            for k in range(env.NUM_OF_DEVICE):
+                plr[k,i]=(1-(received[i][k,0]+received[i][k,1])/6)
+
+        for k in range(env.NUM_OF_DEVICE):
+            plt.scatter(x=x,y=plr[k],label = f'Device {k+1}')
+        plt.title(f'Packet loss rate of all devices') 
+
     plt.xlabel('Frame')
     plt.ylabel('Packet loss rate')
     plt.legend()
@@ -117,13 +114,18 @@ def plot_rate(device=1):
     rate = IO.load('rate')
     sub = []
     mW = []
+    avg_sub = []
+    avg_mW = []
     for i in range(len(rate)):
         sub.append(rate[i][0][device-1])
         mW.append(rate[i][1][device-1])
+        avg_sub.append(np.mean(sub[0:i]))
+        avg_mW.append(np.mean(mW[0:i]))
     
-    plt.plot(sub,label='Rate over Sub6-GHz')
-    plt.plot(mW,label='Rate over mmWave')
+    plt.plot(avg_sub,label='Rate over Sub6-GHz')
+    plt.plot(avg_mW,label='Rate over mmWave')
     plt.xlabel('Frame')
     plt.ylabel('Rate')
-    plt.title(f'Rate of device {device}')
+    plt.title(f'Average rate of device {device}')
+    plt.legend()
     plt.show()
