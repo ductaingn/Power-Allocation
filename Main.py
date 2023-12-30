@@ -26,7 +26,7 @@ EPSILON = 0.5
 # Decay factor
 LAMBDA = 0.995
 # Number of Q-tables
-I = 2
+I = 4
 X0 = -1
 # Number of levels of quantitized Transmit Power 
 A = 10
@@ -161,27 +161,31 @@ def compute_power_level(action,rate):
     rate_mW = list(rate_mW)
     best_rate_device_sub = rate_sub.index(max(rate_sub))
     best_rate_device_mW = rate_mW.index(max(rate_mW))
+    random_sub = list(np.arange(env.NUM_OF_DEVICE))
+    random_mW = list(np.arange(env.NUM_OF_DEVICE))
+    random_index_sub = np.random.randint(len(random_sub))
+    random_index_mW = np.random.randint(len(random_mW))
 
     for k in range(env.NUM_OF_DEVICE):
         match(action[k][0]):
             case 0:
                 power_level_mW[k]=0
             case 1:
-                power_level_mW[k]=0
+                power_level_sub[k]=0
                 
     while(not env.power_constraint_satisfaction(power_level_sub)):
-        if(power_level_sub[best_rate_device_sub]>1):
-            power_level_sub[best_rate_device_sub]-=1
+        if(power_level_sub[random_sub[random_index_sub]]>1):
+            power_level_sub[random_sub[random_index_sub]]-=1
         else:
-            rate_sub[best_rate_device_sub] = -1
-            best_rate_device_sub = rate_sub.index(max(rate_sub))
+            random_sub.pop(random_index_sub)
+            random_index_sub=np.random.randint(len(random_sub))
 
     while(not env.power_constraint_satisfaction(power_level_mW)):
-        if(power_level_mW[best_rate_device_mW]>1):
-            power_level_mW[best_rate_device_mW]-=1
+        if(power_level_mW[random_mW[random_index_mW]]>1):
+            power_level_mW[random_mW[random_index_mW]]-=1
         else:
-            rate_mW[best_rate_device_mW] = -1
-            best_rate_device_mW = rate_mW.index(max(rate_mW))
+            random_mW.pop(random_index_mW)
+            random_index_mW=np.random.randint(len(random_mW))
 
     return [power_level_sub,power_level_mW]
 
