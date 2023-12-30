@@ -13,7 +13,7 @@ def scatter_packet_loss_rate(device='all'):
         for i in range(len(received)):
             plr.append(1-(received[i][device-1,0]+received[i][device-1,1])/6)
             
-        plt.scatter(x=x, y=plr[device-1])
+        plt.scatter(x=x, y=plr)
         plt.title(f'Packet loss rate of device {device}')
 
     else:
@@ -114,18 +114,79 @@ def plot_rate(device=1):
     rate = IO.load('rate')
     sub = []
     mW = []
-    avg_sub = []
-    avg_mW = []
     for i in range(len(rate)):
-        sub.append(rate[i][0][device-1])
-        mW.append(rate[i][1][device-1])
-        avg_sub.append(np.mean(sub[0:i]))
-        avg_mW.append(np.mean(mW[0:i]))
-    
-    plt.plot(avg_sub,label='Rate over Sub6-GHz')
-    plt.plot(avg_mW,label='Rate over mmWave')
+        if(i==0):
+            sub.append(rate[i][0][device-1])
+            mW.append(rate[i][1][device-1])
+
+        else:
+            sub.append(1/i*((i-1)*sub[i-1] + rate[i][0][device-1]))
+            mW.append(1/i*((i-1)*mW[i-1] + rate[i][1][device-1]))
+
+    plt.plot(sub,label='Rate over Sub6-GHz')
+    plt.plot(mW,label='Rate over mmWave')
     plt.xlabel('Frame')
     plt.ylabel('Rate')
     plt.title(f'Average rate of device {device}')
     plt.legend()
     plt.show()
+
+def plot_sum_rate():
+    rate = IO.load('rate')
+    sub = []
+    mW = []
+    avg_sub = []
+    avg_mW = []
+    for i in range(len(rate)):
+        sumsub = 0
+        summW = 0
+        for k in range(env.NUM_OF_DEVICE):
+            sumsub+= rate[i][0][k]
+            summW+= rate[i][1][k]
+        sumsub/=env.NUM_OF_DEVICE
+        summW/=env.NUM_OF_DEVICE
+
+        if(i==0):
+            sub.append(sumsub)
+            mW.append(summW)
+        else:
+            sub.append(1/i* (sub[i-1]*(i-1) + sumsub))
+            mW.append(1/i* (mW[i-1]*(i-1) + summW))
+
+    plt.plot(sub,label = 'Rate over Sub6-GHz')
+    plt.plot(mW,label='Rate over mmWave')
+    plt.xlabel('Frame')
+    plt.ylabel('Rate')
+    plt.title(f'Average sum rate of all device')
+    plt.legend()
+    plt.show()
+
+def plot_powerlevel_distribution(interface):
+    count = np.zeros(env.A)
+    action = IO.load('action')
+    if (interface=='sub'):
+        for i in range(len(action)):
+            for k in range(env.NUM_OF_DEVICE):
+                count[action[i][k][0]]+=1
+
+        x = np.arange(env.A)
+        for i in range(env.A):
+            plt.bar(x=x[i],height=count[i],label = f'{i}')
+
+    elif(interface=='mW'):
+        for i in range(len(action)):
+            for k in range(env.NUM_OF_DEVICE):
+                count[action[i][k][1]]+=1
+
+        x = np.arange(env.A)
+        for i in range(env.A):
+            plt.bar(x=x[i],height=count[i],label = f'{i}')
+
+    plt.show()
+    plt.xlabel('Power level')
+    plt.title(f'Power level distribution of {interface}')
+    plt.legend()
+    mean = 0
+    for i in range(env.A):
+        mean += i*count[i]
+    print('Mean: ',mean/count.sum())
