@@ -190,3 +190,23 @@ def plot_powerlevel_distribution(interface):
     for i in range(env.A):
         mean += i*count[i]
     print('Mean: ',mean/count.sum())
+
+def bench_mark():
+    chose_action_time = IO.load('chose_action_time')
+    compute_reward_time = IO.load('compute_reward_time')
+    feedback_time = IO.load('feedback_time')
+    perform_action_time = IO.load('perform_action_time')
+    update_Q_time = IO.load('update_Q_time')
+    run_time = IO.load('run_time')
+    others = run_time - chose_action_time - compute_reward_time - feedback_time - perform_action_time - update_Q_time
+    chart =[chose_action_time*100/run_time,
+            compute_reward_time*100/run_time,
+            feedback_time*100/run_time,
+            perform_action_time*100/run_time,
+            update_Q_time*100/run_time,
+            others*100/run_time]
+    labels = ['Choose action time','Compute reward time','Feedback time','Perform action time','Update Q-tables time','Others']
+    plt.pie(chart,startangle=90)
+    plt.axis('equal')
+    plt.legend(loc='right',labels=labels)
+    plt.show()
