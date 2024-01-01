@@ -9,7 +9,7 @@ NUM_OF_AP = 1
 # Number of Devices K
 NUM_OF_DEVICE = 3
 # Number of Sub-6GHz channels, Number of MmWave beams
-N = M = 16
+N = M = 4
 # Maximum Packet Loss Rate (PLR Requirement)
 RHO_MAX = 0.1
 # L_k

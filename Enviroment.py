@@ -15,8 +15,8 @@ NUM_OF_AP = 1
 # Number of Devices K
 NUM_OF_DEVICE = 3
 # Number of Sub-6Ghz channels N and mmWave beam M
-NUM_OF_SUB_CHANNEL = 16
-NUM_OF_BEAM = 16
+NUM_OF_SUB_CHANNEL = 4
+NUM_OF_BEAM = 4
 # Transmit Power P_sub = P_mW = P ~ 5dBm
 P = pow(10, 5/10)
 # Noise Power sigma^2 ~ -169dBm/Hz
