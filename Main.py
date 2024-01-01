@@ -6,7 +6,7 @@ import time
 
 # Number of APs
 NUM_OF_AP = 1
-# Number of Devices
+# Number of Devices K
 NUM_OF_DEVICE = 3
 # Number of Sub-6GHz channels, Number of MmWave beams
 N = M = 4
@@ -26,7 +26,7 @@ EPSILON = 0.5
 # Decay factor
 LAMBDA = 0.995
 # Number of Q-tables
-I = 2
+I = 4
 X0 = -1
 # Number of levels of quantitized Transmit Power 
 A = 10
@@ -42,19 +42,20 @@ def initialize_state():
     return state
 
 def update_state(state, packet_loss_rate, feedback, power_level):
+    next_state = state.copy()
     for k in range(NUM_OF_DEVICE):
         for i in range(2):
             # QoS satisfaction
             if (packet_loss_rate[k, i] <= RHO_MAX):
-                state[k, i] = 1
+                next_state[k, i] = 1
             elif (packet_loss_rate[k, i] > RHO_MAX):
-                state[k, i] = 0
+                next_state[k, i] = 0
             # Number of successfully delivered packet on each interface
-            state[k, i+2] = feedback[k, i]
+            next_state[k, i+2] = feedback[k, i]
 
-        state[k,4] = power_level[0][k]
-        state[k,5] = power_level[1][k]
-    return state
+        next_state[k,4] = power_level[0][k]
+        next_state[k,5] = power_level[1][k]
+    return next_state
 
 # CREATE ACTION
 # Action is an ndarray in which action[k] = [interface, power level on sub, power level on mW]
@@ -159,22 +160,31 @@ def compute_power_level(action,rate):
     rate_sub,rate_mW = rate
     rate_sub = list(rate_sub)
     rate_mW = list(rate_mW)
-    best_rate_device_sub = rate_sub.index(max(rate_sub))
-    best_rate_device_mW = rate_mW.index(max(rate_mW))
+    random_sub = list(np.arange(env.NUM_OF_DEVICE))
+    random_mW = list(np.arange(env.NUM_OF_DEVICE))
+    random_index_sub = np.random.randint(len(random_sub))
+    random_index_mW = np.random.randint(len(random_mW))
 
+    for k in range(env.NUM_OF_DEVICE):
+        match(action[k][0]):
+            case 0:
+                power_level_mW[k]=0
+            case 1:
+                power_level_sub[k]=0
+                
     while(not env.power_constraint_satisfaction(power_level_sub)):
-        if(power_level_sub[best_rate_device_sub]>1):
-            power_level_sub[best_rate_device_sub]-=1
+        if(power_level_sub[random_sub[random_index_sub]]>1):
+            power_level_sub[random_sub[random_index_sub]]-=1
         else:
-            rate_sub[best_rate_device_sub] = -1
-            best_rate_device_sub = rate_sub.index(max(rate_sub))
+            random_sub.pop(random_index_sub)
+            random_index_sub=np.random.randint(len(random_sub))
 
     while(not env.power_constraint_satisfaction(power_level_mW)):
-        if(power_level_mW[best_rate_device_mW]>1):
-            power_level_mW[best_rate_device_mW]-=1
+        if(power_level_mW[random_mW[random_index_mW]]>1):
+            power_level_mW[random_mW[random_index_mW]]-=1
         else:
-            rate_mW[best_rate_device_mW] = -1
-            best_rate_device_mW = rate_mW.index(max(rate_mW))
+            random_mW.pop(random_index_mW)
+            random_index_mW=np.random.randint(len(random_mW))
 
     return [power_level_sub,power_level_mW]
 
@@ -229,7 +239,7 @@ def compute_reward(state, num_of_send_packet, num_of_received_packet, old_reward
         state_k = state[k]
         sum = sum + (num_of_received_packet[k, 0] + num_of_received_packet[k, 1])/(
             num_of_send_packet[k, 0] + num_of_send_packet[k, 1]) - (1 - state_k[0]) - (1-state_k[1])
-    sum = (((frame_num - 1)*old_reward) + sum)/frame_num
+    sum = ((frame_num - 1)*old_reward + sum)/frame_num
     return sum
 
 
@@ -288,7 +298,7 @@ def u(x):
     return -np.exp(BETA*x)
 
 
-def update_Q_table(Q_table, alpha, old_reward,state,action,next_state,Q_max_table):
+def update_Q_table(Q_table, alpha, reward,state,action,next_state,Q_max_table):
     state_action = np.insert(state, 6, action.transpose(), axis=1)
     state_action = tuple([tuple(row) for row in state_action])
     if(not state_action in Q_table):
@@ -305,7 +315,7 @@ def update_Q_table(Q_table, alpha, old_reward,state,action,next_state,Q_max_tabl
     else:
         alpha_state_action = alpha.get(state_action)
 
-    Q_table[state_action] = Q_table[state_action] + alpha_state_action * (u(old_reward + GAMMA *
+    Q_table[state_action] = Q_table[state_action] + alpha_state_action * (u(reward + GAMMA *
             max_Q - Q_table[state_action]) - X0)
     
     state = tuple([tuple(row) for row in np.array(state)])
@@ -435,6 +445,7 @@ reward_plot=[]
 number_of_sent_packet_plot=[]
 number_of_received_packet_plot=[]
 power_level_plot = []
+rate_plot = []
 
 chose_action_time = 0
 perform_action_time = 0
@@ -488,6 +499,7 @@ for frame in range(1, T):
     l_max = compute_l_max(r)
     l_sub_max = l_max[0]
     l_mW_max = l_max[1]
+    rate_plot.append(r)
 
     number_of_received_packet = receive_feedback(number_of_send_packet, l_sub_max, l_mW_max)
     packet_loss_rate = compute_packet_loss_rate(
@@ -508,8 +520,8 @@ for frame in range(1, T):
     for i in range(I):
         if (J[i] == 1):
             update_Q_start_time = time.time()
-            Q_table = update_Q_table(Q_tables[i],alpha[i],reward,state,action,next_state,Q_max_table[i])
-            V[i] = update_V(V[i], Q_table)
+            Q_tables[i] = update_Q_table(Q_tables[i],alpha[i],reward,state,action,next_state,Q_max_table[i])
+            V[i] = update_V(V[i], Q_tables[i])
             alpha[i] = update_alpha(alpha[i], V[i])
             update_Q_time += time.time()-update_Q_start_time
 
@@ -535,4 +547,5 @@ IO.save(feedback_time,'feedback_time')
 IO.save(compute_reward_time,'compute_reward_time')
 IO.save(update_Q_time,'update_Q_time')
 IO.save(run_time,'run_time')
+IO.save(rate_plot,'rate')
 IO.save(power_level_plot,'power_level')
