@@ -164,6 +164,8 @@ def plot_sum_rate():
 def plot_powerlevel_distribution(interface):
     count = np.zeros(env.A)
     action = IO.load('action')
+    fix,ax = plt.subplots()
+
     if (interface=='sub'):
         for i in range(len(action)):
             for k in range(env.NUM_OF_DEVICE):
@@ -171,7 +173,7 @@ def plot_powerlevel_distribution(interface):
 
         x = np.arange(env.A)
         for i in range(env.A):
-            plt.bar(x=x[i],height=count[i],label = f'{i}')
+            ax.bar(x=x[i],height=count[i],label = f'{i}')
 
     elif(interface=='mW'):
         for i in range(len(action)):
@@ -180,12 +182,12 @@ def plot_powerlevel_distribution(interface):
 
         x = np.arange(env.A)
         for i in range(env.A):
-            plt.bar(x=x[i],height=count[i],label = f'{i}')
+            ax.bar(x=x[i],height=count[i],label = f'{i}')
 
-    plt.show()
     plt.xlabel('Power level')
-    plt.title(f'Power level distribution of {interface}')
-    plt.legend()
+    ax.set_title(f'Power level distribution of {interface}')
+    ax.legend(title='Level ')
+    plt.show()
     mean = 0
     for i in range(env.A):
         mean += i*count[i]

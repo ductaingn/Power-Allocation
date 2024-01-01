@@ -13,7 +13,7 @@ length_of_area = length/number_of_area_per_row
 # Number of APs
 NUM_OF_AP = 1
 # Number of Devices K
-NUM_OF_DEVICE = 10 
+NUM_OF_DEVICE = 3
 # Number of Sub-6Ghz channels N and mmWave beam M
 NUM_OF_SUB_CHANNEL = 16
 NUM_OF_BEAM = 16
