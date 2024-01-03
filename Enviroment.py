@@ -38,6 +38,12 @@ for i in range(3,A+1):
 T = 1
 # Packet size D = 8 bit
 D = 8
+# Number of frame
+NUM_OF_FRAME = 10000
+# LoS Path loss - mmWave
+LOS_PATH_LOSS = np.random.normal(0,5.8,NUM_OF_FRAME)
+# NLoS Path loss - mmWave
+NLOS_PATH_LOSS = np.random.normal(0,8.7,NUM_OF_FRAME) 
 
 # initialize position of AP.
 # the AP was located at the central of the area
@@ -91,19 +97,19 @@ def path_loss_sub(distance):
     return 38.5 + 30*(np.log10(distance))
 
 
-def path_loss_mW_los(distance):
-    X = np.random.normal(0, 5.8)
+def path_loss_mW_los(distance,frame):
+    X = LOS_PATH_LOSS[frame]
     return 61.4 + 20*(np.log10(distance))+X
 
 
-def path_loss_mw_nlos(distance):
-    X = np.random.normal(0, 8.7)
+def path_loss_mw_nlos(distance,frame):
+    X = NLOS_PATH_LOSS[frame]
     return 72 + 29.2*(np.log10(distance))+X
 
 
 # Main Transmit Beam Gain G_b
 def G(eta, beta):
-    epsilon = 0.1
+    epsilon = 0.01
     return (2*np.pi-(2*np.pi-eta)*epsilon)/(eta)
 
 
@@ -120,27 +126,23 @@ def generate_h_tilde(mu, sigma, amount):
 
 
 def compute_h_sub(list_of_devices, device_index, h_tilde):
-    h = h_tilde * \
-        pow(10, -
-            path_loss_sub(distance_to_AP(list_of_devices[device_index]))/20.0)
-    return np.power(np.abs(h), 2)
+    h = h_tilde * pow(10, -path_loss_sub(distance_to_AP(list_of_devices[device_index]))/20.0)
+    return np.abs(h)
 
 
-def compute_h_mW(list_of_devices, device_index, eta, beta, h_tilde):
+def compute_h_mW(list_of_devices, device_index, eta, beta, h_tilde,frame):
+    h = 0 
     # device blocked by obstacle
     if (device_index == 1 or device_index == 5):
         path_loss = path_loss_mw_nlos(
-            distance_to_AP(list_of_devices[device_index]))
-        h = G(eta, beta)*np.abs(h_tilde) * \
-            pow(10, -path_loss/20)*0.1  # G_Rx^k=epsilon
+            distance_to_AP(list_of_devices[device_index]),frame)
+        h = G(eta, beta)*np.abs(h_tilde) * pow(10, -path_loss/20)*0.01  # G_Rx^k=epsilon
     # device not blocked
     else:
-        path_loss = path_loss_mW_los(
-            distance_to_AP(list_of_devices[device_index]))
-        h = pow(G(eta, beta)*np.abs(h_tilde) *
-                pow(10, -path_loss/20), 2)  # G_Rx^k = G_b
+        path_loss = path_loss_mW_los(distance_to_AP(list_of_devices[device_index]),frame)
+        h = (G(eta, beta)**2)*np.abs(h_tilde) * pow(10, -path_loss/20)  # G_Rx^k = G_b
 
-    return np.power(np.abs(h), 2)
+    return np.abs(h)
 
 
 # check if sum of all power on interface <= P_max ?
@@ -186,13 +188,10 @@ def l_max(r_bkv):
     return r_bkv*T/D
 
 # Number of sucessfully received packets at device k on interface v
-
-
 def num_of_success_packets(l_kv, l_kv_max):
     return l_kv-l_kv_max
+    
 # Packet Successful Delivery rate at device k on interface v
-
-
 def packet_successful_rate(num_of_success_packet, num_of_packet):
     return num_of_success_packet/num_of_packet
 

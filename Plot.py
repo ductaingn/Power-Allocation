@@ -63,8 +63,9 @@ def plot_power_level(device=1):
     for i in range(len(power_level)):
         pow_sub.append(power_level[i][0][device-1])
         pow_mW.append(power_level[i][1][device-1])
-    plt.plot(pow_sub,label='Power Level of Sub6-GHz')
-    plt.plot(pow_mW,label='Power Level of Mm-Wave')
+    x = np.arange(len(power_level))
+    plt.scatter(x=x,y=pow_sub,label='Power Level of Sub6-GHz')
+    plt.scatter(x=x,y=pow_mW,label='Power Level of Mm-Wave')
     plt.legend()
     plt.xlabel('Frame')
     plt.ylabel('Power Level')

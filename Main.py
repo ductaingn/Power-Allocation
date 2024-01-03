@@ -26,7 +26,7 @@ EPSILON = 0.5
 # Decay factor
 LAMBDA = 0.995
 # Number of Q-tables
-I = 4
+I = 2
 X0 = -1
 # Number of levels of quantitized Transmit Power 
 A = 10
@@ -378,7 +378,7 @@ def generate_h_tilde(mu, sigma, num_of_frame):
     return h_tilde
 
 # Achievable rate
-def compute_rate(device_positions, h_tilde, allocation,power_level_list):
+def compute_rate(device_positions, h_tilde, allocation,power_level_list,frame):
     r = []
     r_sub = np.zeros(NUM_OF_DEVICE)
     r_mW = np.zeros(NUM_OF_DEVICE)
@@ -394,7 +394,7 @@ def compute_rate(device_positions, h_tilde, allocation,power_level_list):
             r_sub[k] = env.r_sub(h_sub_k, device_index=k,power=p)
         if (mW_beam_index != -1):
             h_mW_k = env.compute_h_mW(device_positions, device_index=k,
-                                      eta=5*np.pi/180, beta=0, h_tilde=h_tilde_mW[k, mW_beam_index])
+                                      eta=5*np.pi/180, beta=0, h_tilde=h_tilde_mW[k, mW_beam_index],frame=frame)
             p = env.POWER_SET[power_level_list[0][k]]
             r_mW[k] = env.r_mW(h_mW_k, device_index=k,power=p)
 
@@ -436,8 +436,8 @@ packet_loss_rate = np.zeros(shape=(NUM_OF_DEVICE, 2))
 h_tilde = generate_h_tilde(0, 1, T)
 h_tilde_t = h_tilde[0]
 adverage_r = compute_rate(device_positions, h_tilde_t,
-                        allocation=allocate(action),power_level_list=power_level)
-r = compute_rate(device_positions, h_tilde_t, allocation,power_level_list=power_level)
+                        allocation=allocate(action),power_level_list=power_level,frame=1)
+r = compute_rate(device_positions, h_tilde_t, allocation,power_level_list=power_level,frame=1)
 
 state_plot=[]
 action_plot=[]
@@ -495,7 +495,7 @@ for frame in range(1, T):
 
     # Get feedback
     feedback_start_time = time.time()
-    r = compute_rate(device_positions, h_tilde_t, allocation,power_level)
+    r = compute_rate(device_positions, h_tilde_t, allocation,power_level,frame)
     l_max = compute_l_max(r)
     l_sub_max = l_max[0]
     l_mW_max = l_max[1]
