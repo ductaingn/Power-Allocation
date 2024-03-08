@@ -3,15 +3,48 @@ import IO
 import matplotlib.pyplot as plt
 import Enviroment as env
 
+def plot_packet_loss_rate(device):
+    plr = IO.load('packet_loss_rate')
+    plrsub=[]
+    plrmw=[]
+    for i in range(len(plr)):
+        plrsub.append(plr[i][device-1,0])
+        plrmw.append(plr[i][device-1,1])
+    plt.plot(plrsub,label='sub')
+    plt.plot(plrmw,label='mw')
+    plt.legend()
+    plt.title(f'Packet loss rate of device {device}')
+    plt.show()
+
+def plot_moving_avg_packet_loss_rate():
+    received = IO.load('number_of_received_packet')
+    sent = IO.load('number_of_sent_packet')
+    plr = []
+    for i in range(len(sent)):
+        r = 0
+        s = 0
+        for device in range(env.NUM_OF_DEVICE):
+            r+= received[i][device][0]+received[i][device][1]
+            s+= sent[i][device][0]+sent[i][device][1]
+        plr.append(1-r/s)
+    p = []
+    for i in range(len(plr)):
+        p.append(np.mean(plr[0:i]))
+    plt.plot(p,label='plr')
+    plt.legend()
+    plt.title('Moving average Packet loss rate of all devices-PA')
+    plt.show()
+
 def scatter_packet_loss_rate(device='all'):
     received = IO.load('number_of_received_packet')
+    sent = IO.load('number_of_sent_packet')
 
     x = np.arange(len(received))
 
     if(device!= 'all'):
         plr = []
         for i in range(len(received)):
-            plr.append(1-(received[i][device-1,0]+received[i][device-1,1])/6)
+            plr.append(1-(received[i][device-1,0]+received[i][device-1,1])/(sent[i][device-1,0]+sent[i][device-1,1]))
             
         plt.scatter(x=x, y=plr)
         plt.title(f'Packet loss rate of device {device}')
@@ -20,7 +53,7 @@ def scatter_packet_loss_rate(device='all'):
         plr = np.zeros(shape=(env.NUM_OF_DEVICE,len(received)))
         for i in range(len(received)):
             for k in range(env.NUM_OF_DEVICE):
-                plr[k,i]=(1-(received[i][k,0]+received[i][k,1])/6)
+                plr[k,i]=(1-(received[i][k,0]+received[i][k,1])/(sent[i][k,0]+sent[i][k,1]))
 
         for k in range(env.NUM_OF_DEVICE):
             plt.scatter(x=x,y=plr[k],label = f'Device {k+1}')
@@ -33,10 +66,13 @@ def scatter_packet_loss_rate(device='all'):
 
 def plot_reward():
     reward = IO.load('reward')
-    plt.title('Reward')
+    p = []
+    for i in range(len(reward)):
+        p.append(np.mean(reward[0:i]))
+    plt.title('Moving average Reward-PA')
     plt.xlabel('Frame')
     plt.ylabel('Reward')
-    plt.plot(reward)
+    plt.plot(p)
     plt.show()
 
 def plot_position():
@@ -57,30 +93,44 @@ def plot_position():
     plt.show()
 
 def plot_power_level(device=1):
+    count_sub = np.zeros(shape=env.A)
+    count_mW = np.zeros(shape=env.A)
     power_level = IO.load('power_level')
     pow_sub = []
     pow_mW = []
     for i in range(len(power_level)):
         pow_sub.append(power_level[i][0][device-1])
         pow_mW.append(power_level[i][1][device-1])
-    plt.plot(pow_sub,label='Power Level of Sub6-GHz')
-    plt.plot(pow_mW,label='Power Level of Mm-Wave')
+        count_sub[pow_sub[i]]+=1
+        count_mW[pow_mW[i]]+=1
+    x = np.arange(len(power_level))
+    plt.scatter(x=x,y=pow_sub,label='Power Level of Sub6-GHz')
+    plt.scatter(x=x,y=pow_mW,label='Power Level of Mm-Wave')
     plt.legend()
     plt.xlabel('Frame')
     plt.ylabel('Power Level')
     plt.title(f'Power Level of Device {device}')
     plt.show()
+    mean_sub = 0
+    mean_mW = 0
+    for i in range(env.A):
+        mean_sub += i*count_sub[i]
+        mean_mW += i*count_mW[i]
+    print(f'Mean Level of sub: ',mean_sub/count_sub.sum())
+    print(f'Mean Level of mW: ',mean_mW/count_mW.sum())
 
-def plot_action(device=1):
+def scatter_action(device=1):
     action = IO.load('action')
     plot = []
     for i in range(len(action)):
-        plot.append(action[i][device-1,0])
+        plot.append(action[i][device-1][0])
 
-    plt.plot(plot)
-    plt.title(f'Action of device {plot}')
-    plt.xlabel('Frame')
-    plt.ylabel('Action')
+    fig,ax = plt.subplots()
+    x = np.arange(len(action))
+    ax.scatter(x,y=plot)
+    ax.set_title(f'Action of device {device}')
+    ax.set_xlabel('Frame')
+    ax.set_ylabel('Action')
     plt.show()
 
 def plot_interface_usage():
@@ -89,7 +139,7 @@ def plot_interface_usage():
     
     for i in range(len(action)):
         for j in range(env.NUM_OF_DEVICE):
-            usage[j][action[i][j,0]]+=1
+            usage[j][action[i][j][0]]+=1
     usage = np.divide(usage,len(action)/100)
     usage = usage.transpose()
     fig,ax = plt.subplots(layout='constrained')
@@ -157,7 +207,7 @@ def plot_sum_rate():
     plt.plot(mW,label='Rate over mmWave')
     plt.xlabel('Frame')
     plt.ylabel('Rate')
-    plt.title(f'Average sum rate of all device')
+    plt.title(f'Average sum rate of all device-PA')
     plt.legend()
     plt.show()
 
@@ -191,7 +241,44 @@ def plot_powerlevel_distribution(interface):
     mean = 0
     for i in range(env.A):
         mean += i*count[i]
-    print('Mean: ',mean/count.sum())
+    print(f'Mean Level of {interface}: ',mean/count.sum())
+
+def plot_moving_avg_powerlevel(device=1):
+    count_sub = np.zeros(shape=env.A)
+    count_mW = np.zeros(shape=env.A)
+    power_level = IO.load('power_level')
+    action = IO.load('action')
+    pow_sub = []
+    avg_sub = []
+    pow_mW = []
+    avg_mW = []
+    for i in range(len(power_level)):
+        if(action[i][device-1][0]==0):
+            pow_sub.append(power_level[i][0][device-1])
+        if(action[i][device-1][0]==1):
+            pow_mW.append(power_level[i][1][device-1])
+        else:
+            pow_sub.append(power_level[i][0][device-1])
+            pow_mW.append(power_level[i][1][device-1])
+        avg_sub.append(np.mean(pow_sub[0:len(pow_sub)-1]))
+        avg_mW.append(np.mean(pow_mW[0:len(pow_mW)-1]))
+        # count_sub[pow_sub[i]]+=1
+        # count_mW[pow_mW[i]]+=1
+    x = np.arange(len(power_level))
+    plt.plot(avg_sub,label='Power Level of Sub6-GHz')
+    plt.plot(avg_mW,label='Power Level of Mm-Wave')
+    plt.legend()
+    plt.xlabel('Frame')
+    plt.ylabel('Power Level')
+    plt.title(f'Moving Average Power Level of Device {device}')
+    plt.show()
+    # mean_sub = 0
+    # mean_mW = 0
+    # for i in range(env.A):
+    #     mean_sub += i*count_sub[i]
+    #     mean_mW += i*count_mW[i]
+    # print(f'Mean Level of sub: ',mean_sub/count_sub.sum())
+    # print(f'Mean Level of mW: ',mean_mW/count_mW.sum())
 
 def bench_mark():
     chose_action_time = IO.load('chose_action_time')
