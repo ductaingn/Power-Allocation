@@ -11,8 +11,12 @@ NUM_OF_AP = 1
 # Number of Devices K
 NUM_OF_DEVICE = 3
 # Number of Sub-6Ghz channels N and mmWave beam M
-NUM_OF_SUB_CHANNEL = 4
-NUM_OF_BEAM = 4
+NUM_OF_SUB_CHANNEL = 4 
+if(NUM_OF_DEVICE == 10):
+    NUM_OF_SUB_CHANNEL = 16
+NUM_OF_BEAM = 4 
+if(NUM_OF_DEVICE == 10):
+    NUM_OF_BEAM = 16
 # Transmit Power P_sub = P_mW = P ~ 5dBm
 P = pow(10, 5/10)*1e-3
 # Noise Power sigma^2 ~ -169dBm/Hz
@@ -22,14 +26,20 @@ SIGMA_SQR = pow(10, -169/10)*1e-3
 W_SUB = 1e8/NUM_OF_SUB_CHANNEL
 W_MW = 1e9
 # Number of levels of quantitized Transmit Power
-A = 10
+A = NUM_OF_SUB_CHANNEL
 # Emitting power constraints P_min = 5 dBm, P_max = 38 dBm 
 P_MIN = pow(10,5/10)*1e-3
 P_MAX = pow(10,38/10)*1e-3
 # Power set
-POWER_SET = [0,P_MIN]
-for i in range(3,A+1):
-    POWER_SET.append((P_MAX-P_MIN)*i/A)
+# powerlevel_i = 2 powerlevel_{i+1}
+def compute_powerlevel_0():
+    s = 0
+    for i in range(A):
+        s += 1/(2**i)
+    return P_MAX/s
+POWER_SET = [compute_powerlevel_0()]
+for i in range(1,A):
+    POWER_SET.append(POWER_SET[0]/(2**i))
 # Frame Duration T_s 
 T = 1e-3
 # Packet size D = 8000 bit

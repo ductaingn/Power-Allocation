@@ -6,10 +6,6 @@ import time
 
 # Number of APs
 NUM_OF_AP = 1
-# Number of Devices K
-NUM_OF_DEVICE = 3
-# Number of Sub-6GHz channels, Number of MmWave beams
-N = M = 4
 # Maximum Packet Loss Rate (PLR Requirement)
 RHO_MAX = 0.1
 # L_k
@@ -26,8 +22,6 @@ LAMBDA = 0.995
 # Number of Q-tables
 I = 4
 X0 = -1
-# Number of levels of quantitized Transmit Power 
-A = 10
 
 
 # CREAT STATE
@@ -36,12 +30,12 @@ A = 10
 #                   ACK feedback at t-1 on sub, ACK feedback at t-1 on mW, 
 #                   Power level at t-1 on sub, Power level at t-1 on mW]
 def initialize_state():
-    state = np.zeros(shape=(NUM_OF_DEVICE, 6),dtype=int)
+    state = np.zeros(shape=(env.NUM_OF_DEVICE, 6),dtype=int)
     return state
 
 def update_state(packet_loss_rate, feedback, power_level):
-    next_state = np.zeros(shape=(NUM_OF_DEVICE, 6),dtype=int)
-    for k in range(NUM_OF_DEVICE):
+    next_state = np.zeros(shape=(env.NUM_OF_DEVICE, 6),dtype=int)
+    for k in range(env.NUM_OF_DEVICE):
         for i in range(2):
             # QoS satisfaction
             if (packet_loss_rate[k, i] <= RHO_MAX):
@@ -102,7 +96,7 @@ def allocate(action):
         mW.append(-1)
 
     avail_sub = np.full(env.NUM_OF_SUB_CHANNEL,1)
-    for k in range(NUM_OF_DEVICE):
+    for k in range(env.NUM_OF_DEVICE):
         if (action[k][0] == 0):
             sub[k] = action[k][1]
             avail_sub[action[k][1]] = 0
@@ -111,7 +105,7 @@ def allocate(action):
         if (action[k][0] == 2):
             mW[k] = action[k][1]
     
-    for k in range(NUM_OF_DEVICE):
+    for k in range(env.NUM_OF_DEVICE):
         if(action[k][0]==2):
             for i in range(len(avail_sub)):
                 if(avail_sub[i]==1):
@@ -124,8 +118,8 @@ def allocate(action):
 
 # Return an matrix in which number_of_packet[k] = [number of transmit packets on sub, number of transmit packets on mW]
 def compute_number_of_send_packet(action, l_sub_max, l_mW_max):
-    number_of_packet = np.zeros(shape=(NUM_OF_DEVICE, 2))
-    for k in range(NUM_OF_DEVICE):
+    number_of_packet = np.zeros(shape=(env.NUM_OF_DEVICE, 2))
+    for k in range(env.NUM_OF_DEVICE):
         l_sub_max_k = l_sub_max[k]
         l_mW_max_k = l_mW_max[k]
         if (action[k][0] == 0):
@@ -151,33 +145,26 @@ def compute_number_of_send_packet(action, l_sub_max, l_mW_max):
 def compute_power_level(allocation):
     power_level_sub = np.zeros(shape=env.NUM_OF_DEVICE)
     power_level_mW = np.zeros(shape=env.NUM_OF_DEVICE)
-    # powerlevel_i = 2 powerlevel_{i+1}
-    def compute_powerlevel_0():
-        s = 0
-        for i in range(env.NUM_OF_SUB_CHANNEL):
-            s += 1/(2**i)
-        return env.P_MAX/s
     
-    powerlevel_0 = compute_powerlevel_0()
     for i in range(env.NUM_OF_DEVICE):
         if(allocation[0][i]==-1):
             power_level_sub[i] = 0
         else:
-            power_level_sub[i] = powerlevel_0/(2**allocation[0][i])
+            power_level_sub[i] = env.POWER_SET[allocation[0][i]]
 
         if(allocation[1][i]==-1):
             power_level_mW[i] = 0
         else:
-            power_level_mW[i] = powerlevel_0/(2**allocation[1][i])
+            power_level_mW[i] = env.POWER_SET[allocation[1][i]]
     
     
     return [power_level_sub,power_level_mW]
 
 # Return an matrix in which feedback[k] = [number of received packets on sub, number of received packets on mW]
 def receive_feedback(num_of_send_packet, l_sub_max, l_mW_max):
-    feedback = np.zeros(shape=(NUM_OF_DEVICE, 2))
+    feedback = np.zeros(shape=(env.NUM_OF_DEVICE, 2))
 
-    for k in range(NUM_OF_DEVICE):
+    for k in range(env.NUM_OF_DEVICE):
         l_sub_k = num_of_send_packet[k, 0]
         l_mW_k = num_of_send_packet[k, 1]
 
@@ -188,8 +175,8 @@ def receive_feedback(num_of_send_packet, l_sub_max, l_mW_max):
 
 
 def compute_packet_loss_rate(frame_num, old_packet_loss_rate, received_packet_num, sent_packet_num):
-    packet_loss_rate = np.zeros(shape=(NUM_OF_DEVICE, 2))
-    for k in range(NUM_OF_DEVICE):
+    packet_loss_rate = np.zeros(shape=(env.NUM_OF_DEVICE, 2))
+    for k in range(env.NUM_OF_DEVICE):
         # Packet Successfull Rate of device k over Sub-6GHz Interface
         l_sub_k = sent_packet_num[k, 0]
         l_mW_k = sent_packet_num[k, 1]
@@ -221,7 +208,7 @@ def compute_packet_loss_rate(frame_num, old_packet_loss_rate, received_packet_nu
 def compute_reward(state, power_level, num_of_send_packet, num_of_received_packet, old_reward_value, frame_num):
     sum = 0
     risk = 0
-    for k in range(NUM_OF_DEVICE):
+    for k in range(env.NUM_OF_DEVICE):
         state_k = state[k]
         sum = sum + (num_of_received_packet[k, 0] + num_of_received_packet[k, 1])/(
             num_of_send_packet[k, 0] + num_of_send_packet[k, 1]) - (1 - state_k[0]) - (1-state_k[1])
@@ -370,22 +357,22 @@ def update_alpha(alpha, V, state, action):
 def generate_h_tilde(mu, sigma, num_of_frame):
     h_tilde = []
     h_tilde_sub = env.generate_h_tilde(
-        mu, sigma, num_of_frame*NUM_OF_DEVICE*env.NUM_OF_SUB_CHANNEL)
+        mu, sigma, num_of_frame*env.NUM_OF_DEVICE*env.NUM_OF_SUB_CHANNEL)
     h_tilde_mW = env.generate_h_tilde(
-        mu, sigma, num_of_frame*NUM_OF_DEVICE*env.NUM_OF_BEAM)
+        mu, sigma, num_of_frame*env.NUM_OF_DEVICE*env.NUM_OF_BEAM)
     for frame in range(num_of_frame):
         h_tilde_sub_t = np.empty(
-            shape=(NUM_OF_DEVICE, env.NUM_OF_SUB_CHANNEL), dtype=complex)
-        for k in range(NUM_OF_DEVICE):
+            shape=(env.NUM_OF_DEVICE, env.NUM_OF_SUB_CHANNEL), dtype=complex)
+        for k in range(env.NUM_OF_DEVICE):
             for n in range(env.NUM_OF_SUB_CHANNEL):
-                h_tilde_sub_t[k, n] = h_tilde_sub[frame*NUM_OF_DEVICE *
+                h_tilde_sub_t[k, n] = h_tilde_sub[frame*env.NUM_OF_DEVICE *
                                                   env.NUM_OF_SUB_CHANNEL + k*env.NUM_OF_SUB_CHANNEL + n]
 
         h_tilde_mW_t = np.empty(
-            shape=(NUM_OF_DEVICE, env.NUM_OF_BEAM), dtype=complex)
-        for k in range(NUM_OF_DEVICE):
+            shape=(env.NUM_OF_DEVICE, env.NUM_OF_BEAM), dtype=complex)
+        for k in range(env.NUM_OF_DEVICE):
             for n in range(env.NUM_OF_BEAM):
-                h_tilde_mW_t[k, n] = h_tilde_mW[frame*NUM_OF_DEVICE *
+                h_tilde_mW_t[k, n] = h_tilde_mW[frame*env.NUM_OF_DEVICE *
                                                 env.NUM_OF_BEAM + k*env.NUM_OF_BEAM + n]
         h_tilde_t = [h_tilde_sub_t, h_tilde_mW_t]
         h_tilde.append(h_tilde_t)
@@ -394,11 +381,11 @@ def generate_h_tilde(mu, sigma, num_of_frame):
 # Achievable rate
 def compute_rate(device_positions, h_tilde, allocation,power_level_list,frame):
     r = []
-    r_sub = np.zeros(NUM_OF_DEVICE)
-    r_mW = np.zeros(NUM_OF_DEVICE)
+    r_sub = np.zeros(env.NUM_OF_DEVICE)
+    r_mW = np.zeros(env.NUM_OF_DEVICE)
     h_tilde_sub = h_tilde[0]
     h_tilde_mW = h_tilde[1]
-    for k in range(NUM_OF_DEVICE):
+    for k in range(env.NUM_OF_DEVICE):
         sub_channel_index = allocation[0][k]
         mW_beam_index = allocation[1][k]
         if (sub_channel_index != -1):
@@ -418,7 +405,7 @@ def compute_rate(device_positions, h_tilde, allocation,power_level_list,frame):
 
 
 def compute_average_r(adverage_r, last_r, frame_num):
-    for k in range(NUM_OF_DEVICE):
+    for k in range(env.NUM_OF_DEVICE):
         adverage_r[0][k] = frame_num *(last_r[0][k]+adverage_r[0][k]*(frame_num-1))
         adverage_r[1][k] = frame_num *(last_r[1][k]+adverage_r[1][k]*(frame_num-1))
     return adverage_r
@@ -439,7 +426,7 @@ state = initialize_state()
 action = initialize_action()
 reward_first_sum = 0
 allocation = allocate(action)
-packet_loss_rate = np.zeros(shape=(NUM_OF_DEVICE, 2))
+packet_loss_rate = np.zeros(shape=(env.NUM_OF_DEVICE, 2))
 power_level = compute_power_level(allocation)
 Q_tables = initialize_Q_tables(state)
 V = initialize_V(state)
