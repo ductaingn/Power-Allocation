@@ -139,7 +139,7 @@ def plot_interface_usage():
     
     for i in range(len(action)):
         for j in range(env.NUM_OF_DEVICE):
-            usage[j][action[i][j][0]]+=1
+            usage[j][action[i][j]]+=1
     usage = np.divide(usage,len(action)/100)
     usage = usage.transpose()
     fig,ax = plt.subplots(layout='constrained')
@@ -253,9 +253,9 @@ def plot_moving_avg_powerlevel(device=1):
     pow_mW = []
     avg_mW = []
     for i in range(len(power_level)):
-        if(action[i][device-1][0]==0):
+        if(action[i][device-1]==0):
             pow_sub.append(power_level[i][0][device-1])
-        if(action[i][device-1][0]==1):
+        if(action[i][device-1]==1):
             pow_mW.append(power_level[i][1][device-1])
         else:
             pow_sub.append(power_level[i][0][device-1])
