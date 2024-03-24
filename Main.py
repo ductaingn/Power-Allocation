@@ -20,7 +20,7 @@ EPSILON = 0.5
 # Decay factor
 LAMBDA = 0.995
 # Number of Q-tables
-I = 4
+I = 2
 X0 = -1
 
 
@@ -148,12 +148,12 @@ def compute_power_level(state,action):
     mw_need_prior = []
     for k in range(env.NUM_OF_DEVICE):
         if(action[k]==0):
-            if(state[k][2]==0):
+            if(state[k][0]==0):
                 sub_need_prior.append(k)
             sub_need+=1
 
         elif(action[k]==1 or action[k]==2):
-            if(state[k][3]==0):
+            if(state[k][1]==0):
                 mw_need_prior.append(k)
             mw_need+=1
             if(action[k]==2):
@@ -164,15 +164,16 @@ def compute_power_level(state,action):
     def partition(num_of_part,num_of_prior,total_p):
         if(total_p==0):
             return []
-        s = 0
-        for i in range(num_of_part*2):
-            s += 1/(2**i)
-        prior_power = 1 - 1/s
+        if(num_of_prior==num_of_part):
+            prior_power = 1
+        else:
+            prior_power = 1 - 1/2**num_of_prior
+        non_prior_power = 1- prior_power
         res = []
         for i in range(num_of_prior):
             res.append(prior_power/num_of_prior*total_p)
         for i in range(num_of_part-num_of_prior):
-            res.append((1-prior_power)/(num_of_part-num_of_prior)*total_p)
+            res.append(non_prior_power/(num_of_part-num_of_prior)*total_p)
         return res 
     
     sub_partition = partition(sub_need,len(sub_need_prior),sub_power)
