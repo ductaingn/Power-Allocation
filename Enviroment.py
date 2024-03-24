@@ -28,15 +28,15 @@ W_MW = 1e9
 # Number of levels of quantitized Transmit Power
 A = NUM_OF_SUB_CHANNEL
 # Emitting power constraints P_min = 5 dBm, P_max = 38 dBm 
-P_MIN = pow(10,5/10)*1e-3
-P_MAX = pow(10,38/10)*1e-3
+# P_MIN = pow(10,5/10)*1e-3
+P_SUM = pow(10,38/10)*1e-3
 # Power set
 # powerlevel_i = 2 powerlevel_{i+1}
 def compute_powerlevel_0():
     s = 0
     for i in range(A):
         s += 1/(2**i)
-    return P_MAX/s
+    return P_SUM/s
 POWER_SET = [compute_powerlevel_0()]
 for i in range(1,A):
     POWER_SET.append(POWER_SET[0]/(2**i))
@@ -147,7 +147,7 @@ def power_constraint_satisfaction(power_level_list):
     sum = 0
     for i in power_level_list:
         sum += POWER_SET[i]
-    return sum<=P_MAX
+    return sum<=P_SUM
 
 # gamma_sub(h,k,n) (t) is the Signal to Interference-plus-Noise Ratio (SINR) from AP to device k on subchannel n with channel coefficient h
 def gamma_sub(h,AP_index=1, power=P):
@@ -180,24 +180,10 @@ def r_mW(h, device_index,power):
     return W_MW*np.log2(1+gamma_sub(h,power))
 
 
-# Maximum number of packets of size d bits that can be received successfully at device k on interface v
-def l_max(r_bkv):
-    return r_bkv*T/D
-
-# Number of sucessfully received packets at device k on interface v
-def num_of_success_packets(l_kv, l_kv_max):
-    return l_kv-l_kv_max
-    
-# Packet Successful Delivery rate at device k on interface v
-def packet_successful_rate(num_of_success_packet, num_of_packet):
-    return num_of_success_packet/num_of_packet
-
-
-def packet_loss_rate(t, old_packet_loss_rate, packet_successful_rate, l_kv):
+def packet_loss_rate(t, old_packet_loss_rate, omega_kv, l_kv):
     if (l_kv == 0):
         packet_loss_rate = ((t-1)/t)*old_packet_loss_rate
         return packet_loss_rate
     elif (l_kv > 0):
-        packet_loss_rate = (
-            1/t)*((t-1)*old_packet_loss_rate + (1-packet_successful_rate))
+        packet_loss_rate = (1/t)*((t-1)*old_packet_loss_rate + (1-omega_kv/l_kv))
         return packet_loss_rate
