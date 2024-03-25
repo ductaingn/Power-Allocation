@@ -159,7 +159,8 @@ def compute_power_level(state,action):
             if(action[k]==2):
                 sub_need+=1
     
-    sub_power = (2*len(sub_need_prior)+sub_need)/(2*len(sub_need_prior)+2*len(mw_need_prior)+sub_need+mw_need)*env.P_SUM
+    prior_coef = 2
+    sub_power = (prior_coef*len(sub_need_prior)+sub_need)/(prior_coef*len(sub_need_prior)+prior_coef*len(mw_need_prior)+sub_need+mw_need)*env.P_SUM
     mw_power = env.P_SUM - sub_power
     def partition(num_of_part,num_of_prior,total_p):
         if(total_p==0):
