@@ -169,7 +169,8 @@ def compute_power_level(state,action):
         if(num_of_prior<num_of_part):
             non_prior_power = 1/C**num_of_prior
         else:
-            prior_power = 1 - non_prior_power
+            non_prior_power = 0
+        prior_power = 1 - non_prior_power
         res = []
         for i in range(num_of_prior):
             res.append(prior_power/num_of_prior*total_p)
