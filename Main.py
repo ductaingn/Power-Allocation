@@ -22,6 +22,8 @@ LAMBDA = 0.995
 # Number of Q-tables
 I = 2
 X0 = -1
+# Priority coefficient
+C = np.e
 
 
 # CREAT STATE
@@ -159,17 +161,15 @@ def compute_power_level(state,action):
             if(action[k]==2):
                 sub_need+=1
     
-    prior_coef = 2
-    sub_power = (prior_coef*len(sub_need_prior)+sub_need)/(prior_coef*len(sub_need_prior)+prior_coef*len(mw_need_prior)+sub_need+mw_need)*env.P_SUM
+    sub_power = (C*len(sub_need_prior)+sub_need)/(C*len(sub_need_prior)+C*len(mw_need_prior)+sub_need+mw_need)*env.P_SUM
     mw_power = env.P_SUM - sub_power
     def partition(num_of_part,num_of_prior,total_p):
         if(total_p==0):
             return []
-        if(num_of_prior==num_of_part):
-            prior_power = 1
+        if(num_of_prior<num_of_part):
+            non_prior_power = 1/C**num_of_prior
         else:
-            prior_power = 1 - 1/2**num_of_prior
-        non_prior_power = 1- prior_power
+            prior_power = 1 - non_prior_power
         res = []
         for i in range(num_of_prior):
             res.append(prior_power/num_of_prior*total_p)
