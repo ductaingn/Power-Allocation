@@ -17,7 +17,7 @@ def load(file_name):
     return res
 
 def load_positions():
-    return pickle.load(open('/home/nguyen/Projects/Group Research/Topic 2/Source Code/result/device_positions.pickle','rb'))
+    return pickle.load(open('/home/nguyen/Projects/Group ICN/Topic 2/Source Code/result/device_positions.pickle','rb'))
 
 def load_h_tilde():
-    return pickle.load(open('/home/nguyen/Projects/Group Research/Topic 2/Source Code/result/h_tilde.pickle','rb'))
+    return pickle.load(open('/home/nguyen/Projects/Group ICN/Topic 2/Source Code/result/h_tilde.pickle','rb'))
