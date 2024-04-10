@@ -128,16 +128,8 @@ def compute_h_mW(list_of_devices, device_index, h_tilde, frame,eta=5*np.pi/180, 
 
     return h
 
-
-# check if sum of all power on interface <= P_max ?
-def power_constraint_satisfaction(power_level_list):
-    sum = 0
-    for i in power_level_list:
-        sum += POWER_SET[i]
-    return sum<=P_SUM
-
 # gamma_sub(h,k,n) (t) is the Signal to Interference-plus-Noise Ratio (SINR) from AP to device k on subchannel n with channel coefficient h
-def gamma_sub(h,AP_index=1, power=P):
+def gamma_sub(h,AP_index=1, power=P_SUM):
     power = h*power
     interference_plus_noise = W_SUB*SIGMA_SQR
     # for b in range(NUM_OF_AP):
@@ -148,7 +140,7 @@ def gamma_sub(h,AP_index=1, power=P):
 # gamma_mW(k,m) (t) is the Signal to Interference-plus-Noise Ratio (SINR) from AP to device k on beam m with channel coeffiction h
 
 
-def gamma_mW(h,AP_index=1, power=P):
+def gamma_mW(h,AP_index=1, power=P_SUM):
     power = h*power
     interference_plus_noise = W_MW*SIGMA_SQR
     # for b in range(NUM_OF_AP):
