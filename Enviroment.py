@@ -17,8 +17,6 @@ if(NUM_OF_DEVICE == 10):
 NUM_OF_BEAM = 4 
 if(NUM_OF_DEVICE == 10):
     NUM_OF_BEAM = 16
-# Transmit Power P_sub = P_mW = P ~ 5dBm
-P = pow(10, 5/10)*1e-3
 # Noise Power sigma^2 ~ -169dBm/Hz
 SIGMA_SQR = pow(10, -169/10)*1e-3
 # Bandwidth Sub6-GHz = 100MHz, W_mW = 1GHz
@@ -27,19 +25,8 @@ W_SUB = 1e8/NUM_OF_SUB_CHANNEL
 W_MW = 1e9
 # Number of levels of quantitized Transmit Power
 A = NUM_OF_SUB_CHANNEL
-# Emitting power constraints P_min = 5 dBm, P_max = 38 dBm 
-# P_MIN = pow(10,5/10)*1e-3
-P_SUM = pow(10,38/10)*1e-3
-# Power set
-# powerlevel_i = 2 powerlevel_{i+1}
-def compute_powerlevel_0():
-    s = 0
-    for i in range(A):
-        s += 1/(2**i)
-    return P_SUM/s
-POWER_SET = [compute_powerlevel_0()]
-for i in range(1,A):
-    POWER_SET.append(POWER_SET[0]/(2**i))
+# Emitting power constraints 
+P_SUM = pow(10,5/10)*1e-3
 # Frame Duration T_s 
 T = 1e-3
 # Packet size D = 8000 bit
