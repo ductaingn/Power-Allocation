@@ -29,8 +29,6 @@ if __name__=="__main__":
     X0 = -1
 
     state_plot, action_plot, Q_tables, reward, packet_loss_rate_plot, power_level_plot,rate_plot, number_of_sent_packet_plot, number_of_received_packet_plot = Model.train(priority_coef=3)
-
-    state_plot, action_plot, Q_tables, reward, packet_loss_rate_plot, power_level_plot,rate_plot, number_of_sent_packet_plot, number_of_received_packet_plot = Model.train(priority_coef=3)
     
     IO.save(number_of_received_packet_plot,f'PA-number_of_received_packet')
     IO.save(number_of_sent_packet_plot,f'PA-number_of_sent_packet')
