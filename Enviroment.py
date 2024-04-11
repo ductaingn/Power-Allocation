@@ -26,7 +26,7 @@ W_MW = 1e9
 # Number of levels of quantitized Transmit Power
 A = NUM_OF_SUB_CHANNEL
 # Emitting power constraints 
-P_SUM = pow(10,5/10)*1e-3
+P_SUM = pow(10,5/10)*1e-3*NUM_OF_DEVICE*2
 # Frame Duration T_s 
 T = 1e-3
 # Packet size D = 8000 bit
@@ -34,9 +34,9 @@ D = 8000
 # Number of frame
 NUM_OF_FRAME = 10000
 # LoS Path loss - mmWave
-LOS_PATH_LOSS = np.random.normal(0,5.8,NUM_OF_FRAME)
+LOS_PATH_LOSS = np.random.normal(0,5.8,NUM_OF_FRAME+1)
 # NLoS Path loss - mmWave
-NLOS_PATH_LOSS = np.random.normal(0,8.7,NUM_OF_FRAME) 
+NLOS_PATH_LOSS = np.random.normal(0,8.7,NUM_OF_FRAME+1) 
 
 # initialize position of AP.
 # the AP was located at the central of the area
