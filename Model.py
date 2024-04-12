@@ -188,12 +188,12 @@ def compute_power_fix(state, action):
 
     for k in range(env.NUM_OF_DEVICE):
         if(action[k]==0):
-            power_level_sub[k] = env.P_SUM/env.NUM_OF_DEVICE
+            power_level_sub[k] = env.P_SUM/env.NUM_OF_DEVICE/2
         elif(action[k]==1):
-            power_level_mW[k] = env.P_SUM/env.NUM_OF_DEVICE
+            power_level_mW[k] = env.P_SUM/env.NUM_OF_DEVICE/2
         elif(action[k]==2):
-            power_level_sub[k] = env.P_SUM/env.NUM_OF_DEVICE
-            power_level_mW[k] = env.P_SUM/env.NUM_OF_DEVICE
+            power_level_sub[k] = env.P_SUM/env.NUM_OF_DEVICE/2
+            power_level_mW[k] = env.P_SUM/env.NUM_OF_DEVICE/2
 
     return [power_level_sub,power_level_mW]
 
