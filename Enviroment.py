@@ -26,7 +26,7 @@ W_MW = 1e9
 # Number of levels of quantitized Transmit Power
 A = NUM_OF_SUB_CHANNEL
 # Emitting power constraints 
-P_SUM = pow(10,5/10)*1e-3
+P_SUM = pow(10,5/10)*1e-3*NUM_OF_DEVICE*2
 # Frame Duration T_s 
 T = 1e-3
 # Packet size D = 8000 bit

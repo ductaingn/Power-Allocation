@@ -123,7 +123,7 @@ def scatter_action(device=1):
     action = IO.load('action')
     plot = []
     for i in range(len(action)):
-        plot.append(action[i][device-1][0])
+        plot.append(action[i][device-1])
 
     fig,ax = plt.subplots()
     x = np.arange(len(action))
