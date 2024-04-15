@@ -466,7 +466,7 @@ def train(num_time_frame=env.NUM_OF_FRAME,
     reward_first_sum = 0
     allocation = allocate(action)
     packet_loss_rate = np.zeros(shape=(env.NUM_OF_DEVICE, 2))
-    if(power_fix==False):
+    if(power_fix==True):
         power_level = compute_power_fix(state, action)
     else:
         power_level = compute_power_level(state,action,priority_coef)
@@ -507,7 +507,7 @@ def train(num_time_frame=env.NUM_OF_FRAME,
         action = choose_action(state, risk_adverse_Q, EPSILON)
         allocation = allocate(action)
         action_plot.append(action)
-        if(power_fix == False):
+        if(power_fix == True):
             power_level = compute_power_fix(state,action)
         else:
             power_level = compute_power_level(state,action,priority_coef)
