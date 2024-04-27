@@ -65,7 +65,7 @@ def scatter_packet_loss_rate(device='all'):
     plt.show()
 
 def plot_reward():
-    reward = IO.load('reward')
+    reward = IO.load('PA-reward')
     p = []
     for i in range(len(reward)):
         p.append(np.mean(reward[0:i]))
@@ -77,7 +77,7 @@ def plot_reward():
 
 def plot_position():
     ap_pos = env.AP_POSITION
-    device_pos = IO.load('device_positions')
+    device_pos = IO.load('PA-device_positions')
     plt.title("AP and devices Position")
     plt.scatter(ap_pos[0], ap_pos[1], color = 'r',marker = 's',label = 'AP')
     for i in range(len(device_pos)):
@@ -86,8 +86,8 @@ def plot_position():
         plt.scatter(device_pos[i][0],device_pos[i][1], color = 'b')
         plt.text(device_pos[i][0]-0.4,device_pos[i][1]+0.8,f"D{i+1}",fontsize=12)
         
-    plt.xlim([0,90])
-    plt.ylim([0,90])
+    plt.xlim([-env.width/2,env.width/2])
+    plt.ylim([-env.length/2,env.length/2])
     plt.legend(loc='upper right')
     plt.grid()
     plt.show()
@@ -134,7 +134,7 @@ def scatter_action(device=1):
     plt.show()
 
 def plot_interface_usage():
-    action = IO.load('action')
+    action = IO.load('PA-action')
     usage = np.zeros(shape=(env.NUM_OF_DEVICE,3))
     
     for i in range(len(action)):
@@ -247,7 +247,7 @@ def plot_moving_avg_powerlevel(device=1):
     count_sub = np.zeros(shape=env.A)
     count_mW = np.zeros(shape=env.A)
     power_level = IO.load('power_level')
-    action = IO.load('action')
+    action = IO.load('PA-action')
     pow_sub = []
     avg_sub = []
     pow_mW = []

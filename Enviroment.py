@@ -9,7 +9,7 @@ width = 150
 # Number of APs
 NUM_OF_AP = 1
 # Number of Devices K
-NUM_OF_DEVICE = 3
+NUM_OF_DEVICE = 10
 # Number of Sub-6Ghz channels N and mmWave beam M
 NUM_OF_SUB_CHANNEL = 4 
 if(NUM_OF_DEVICE == 10):
