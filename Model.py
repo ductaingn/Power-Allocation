@@ -52,6 +52,10 @@ def choose_action(state, Q_table, epsilon):
                 if(max_Q==0):
                     random_action.append(action)
         if(max_Q==0):
+            action = initialize_action()
+            if(not action in Q_table[state]):
+                Q_table[state].update({action:0})
+                return action
             action = random_action[np.random.randint(0,len(random_action))]
 
         return action
@@ -258,6 +262,8 @@ def add_2_Q_tables(Q1, Q2):
     for state in Q2:
         if (state in q):
             for a in q[state]:
+                if(not a in Q2[state]):
+                    Q2[state].update({a:0})
                 q[state][a] += Q2[state][a]
         else:
             q.update({state: Q2[state].copy()})
@@ -308,15 +314,6 @@ def u(x,beta):
 def add_new_state_to_table(table, state):
     state = tuple([tuple(row) for row in state])
     actions = {}
-    def gen(actions,action,k):
-        if(k==env.NUM_OF_DEVICE):
-            actions.update({tuple(action.copy()):0})
-            return
-        for i in range(3):
-            action[k]=i
-            gen(actions,action,k+1)
-    action = [0,0,0]
-    gen(actions,action,0)
     table.update({state:actions})
     return table
     
@@ -329,6 +326,9 @@ def update_Q_table(Q_table, alpha, reward, state, action, next_state, gamma, x0,
     for a in Q_table[state]:
         if(Q_table[state][a]>max_Q):
             max_Q = Q_table[state][a]
+
+    if(not action in Q_table[state]):
+        Q_table[state].update({action:0})
 
     Q_table[state][action] =  Q_table[state][action] + alpha[state][action] * (u(reward + gamma * max_Q - Q_table[state][action], beta) - x0)
     return Q_table
@@ -345,6 +345,8 @@ def initialize_V(first_state, num_Q_tables):
 
 def update_V(V, state, action):
     if(state in V):
+        if(not action in V[state]):
+            V[state].update({action:0})
         V[state][action]+=1
     else:
         add_new_state_to_table(V,state)
@@ -361,6 +363,8 @@ def update_alpha(alpha, V, state, action):
     state = tuple([tuple(row) for row in state])
     action = tuple(action)
     if(state in alpha):
+        if(not action in alpha[state]):
+            alpha[state].update({action:0})
         alpha[state][action] = 1/V[state][action]
     else:
         add_new_state_to_table(alpha,state)
