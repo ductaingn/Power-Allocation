@@ -17,8 +17,6 @@ if(NUM_OF_DEVICE == 10):
 NUM_OF_BEAM = 4 
 if(NUM_OF_DEVICE == 10):
     NUM_OF_BEAM = 16
-# Transmit Power P_sub = P_mW = P ~ 5dBm
-P = pow(10, 5/10)*1e-3
 # Noise Power sigma^2 ~ -169dBm/Hz
 SIGMA_SQR = pow(10, -169/10)*1e-3
 # Bandwidth Sub6-GHz = 100MHz, W_mW = 1GHz
@@ -27,19 +25,8 @@ W_SUB = 1e8/NUM_OF_SUB_CHANNEL
 W_MW = 1e9
 # Number of levels of quantitized Transmit Power
 A = NUM_OF_SUB_CHANNEL
-# Emitting power constraints P_min = 5 dBm, P_max = 38 dBm 
-P_MIN = pow(10,5/10)*1e-3
-P_MAX = pow(10,38/10)*1e-3
-# Power set
-# powerlevel_i = 2 powerlevel_{i+1}
-def compute_powerlevel_0():
-    s = 0
-    for i in range(A):
-        s += 1/(2**i)
-    return P_MAX/s
-POWER_SET = [compute_powerlevel_0()]
-for i in range(1,A):
-    POWER_SET.append(POWER_SET[0]/(2**i))
+# Emitting power constraints 
+P_SUM = pow(10,5/10)*1e-3*NUM_OF_DEVICE*2
 # Frame Duration T_s 
 T = 1e-3
 # Packet size D = 8000 bit
@@ -47,9 +34,9 @@ D = 8000
 # Number of frame
 NUM_OF_FRAME = 10000
 # LoS Path loss - mmWave
-LOS_PATH_LOSS = np.random.normal(0,5.8,NUM_OF_FRAME)
+LOS_PATH_LOSS = np.random.normal(0,5.8,NUM_OF_FRAME+1)
 # NLoS Path loss - mmWave
-NLOS_PATH_LOSS = np.random.normal(0,8.7,NUM_OF_FRAME) 
+NLOS_PATH_LOSS = np.random.normal(0,8.7,NUM_OF_FRAME+1) 
 
 # initialize position of AP.
 # the AP was located at the central of the area
@@ -141,16 +128,8 @@ def compute_h_mW(list_of_devices, device_index, h_tilde, frame,eta=5*np.pi/180, 
 
     return h
 
-
-# check if sum of all power on interface <= P_max ?
-def power_constraint_satisfaction(power_level_list):
-    sum = 0
-    for i in power_level_list:
-        sum += POWER_SET[i]
-    return sum<=P_MAX
-
 # gamma_sub(h,k,n) (t) is the Signal to Interference-plus-Noise Ratio (SINR) from AP to device k on subchannel n with channel coefficient h
-def gamma_sub(h,AP_index=1, power=P):
+def gamma_sub(h,AP_index=1, power=P_SUM):
     power = h*power
     interference_plus_noise = W_SUB*SIGMA_SQR
     # for b in range(NUM_OF_AP):
@@ -161,7 +140,7 @@ def gamma_sub(h,AP_index=1, power=P):
 # gamma_mW(k,m) (t) is the Signal to Interference-plus-Noise Ratio (SINR) from AP to device k on beam m with channel coeffiction h
 
 
-def gamma_mW(h,AP_index=1, power=P):
+def gamma_mW(h,AP_index=1, power=P_SUM):
     power = h*power
     interference_plus_noise = W_MW*SIGMA_SQR
     # for b in range(NUM_OF_AP):
@@ -180,24 +159,10 @@ def r_mW(h, device_index,power):
     return W_MW*np.log2(1+gamma_sub(h,power))
 
 
-# Maximum number of packets of size d bits that can be received successfully at device k on interface v
-def l_max(r_bkv):
-    return r_bkv*T/D
-
-# Number of sucessfully received packets at device k on interface v
-def num_of_success_packets(l_kv, l_kv_max):
-    return l_kv-l_kv_max
-    
-# Packet Successful Delivery rate at device k on interface v
-def packet_successful_rate(num_of_success_packet, num_of_packet):
-    return num_of_success_packet/num_of_packet
-
-
-def packet_loss_rate(t, old_packet_loss_rate, packet_successful_rate, l_kv):
+def packet_loss_rate(t, old_packet_loss_rate, omega_kv, l_kv):
     if (l_kv == 0):
         packet_loss_rate = ((t-1)/t)*old_packet_loss_rate
         return packet_loss_rate
     elif (l_kv > 0):
-        packet_loss_rate = (
-            1/t)*((t-1)*old_packet_loss_rate + (1-packet_successful_rate))
+        packet_loss_rate = (1/t)*((t-1)*old_packet_loss_rate + (1-omega_kv/l_kv))
         return packet_loss_rate
