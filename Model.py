@@ -51,12 +51,12 @@ def choose_action(state, Q_table, epsilon):
                 action = a
                 if(max_Q==0):
                     random_action.append(action)
-        if(max_Q==0):
+        if(max_Q<=0):
             action = initialize_action()
-            if(not action in Q_table[state]):
-                Q_table[state].update({action:0})
-                return action
-            action = random_action[np.random.randint(0,len(random_action))]
+            if(not tuple(action) in Q_table[state]):
+                Q_table[state].update({tuple(action):0})
+                random_action.append(action)
+                action = random_action[np.random.randint(0,len(random_action))]
 
         return action
 
@@ -495,7 +495,7 @@ def train(num_time_frame=env.NUM_OF_FRAME,
     power_level_plot = []
     rate_plot = []
 
-    for frame in range(1, num_time_frame):
+    for frame in range(1, num_time_frame+1):
         # Random Q-table
         H = np.random.randint(0, num_Q_tables)
         risk_adverse_Q = compute_risk_adverse_Q(Q_tables, H, num_Q_tables, LAMBDA_P)
