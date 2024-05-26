@@ -54,7 +54,8 @@ def distance_to_AP(pos_of_device):
 # if the distance is satisfied, store it into the array list_of_devices.
 def initialize_devices_pos():
     list_of_devices = []
-
+    rand_x = np.random.permutation(np.concatenate((np.random.uniform(-length/2,0, int(NUM_OF_DEVICE/2)),np.random.uniform(0,length/2,int(NUM_OF_DEVICE/2))),axis=0))
+    rand_y = np.random.permutation(np.concatenate((np.random.uniform(-width/2,0, int(NUM_OF_DEVICE/2)),np.random.uniform(0,width/2,int(NUM_OF_DEVICE/2))),axis=0))
     for i in range (NUM_OF_DEVICE):
         # Distance from Device #1 to AP and Device #2 to AP is equal
         if(i==0):
@@ -70,8 +71,8 @@ def initialize_devices_pos():
             y = -60
 
         else:
-            x = rd.uniform(-length/2,length/2)
-            y = rd.uniform(-width/2,width/2)
+            x = rand_x[i]
+            y = rand_y[i]
 
         list_of_devices.append((x,y))
     return list_of_devices
