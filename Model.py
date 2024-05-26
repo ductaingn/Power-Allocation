@@ -3,6 +3,7 @@ import IO
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+from tqdm import tqdm
 
 # Maximum Packet Loss Rate (PLR Requirement)
 
@@ -116,8 +117,8 @@ def compute_number_of_send_packet(action, l_sub_max, l_mW_max, L_k):
 
         if (action[k] == 2):
             if (l_mW_max_k < L_k):
-                number_of_packet[k, 1] = l_mW_max_k
-                number_of_packet[k, 0] = min(l_sub_max_k, L_k - l_mW_max_k)
+                number_of_packet[k, 1] = max(1,l_mW_max_k)
+                number_of_packet[k, 0] = max(1,min(l_sub_max_k, L_k - l_mW_max_k))
             if (l_mW_max_k >= L_k):
                 number_of_packet[k, 0] = 1
                 number_of_packet[k, 1] = L_k - 1
@@ -495,7 +496,7 @@ def train(num_time_frame=env.NUM_OF_FRAME,
     power_level_plot = []
     rate_plot = []
 
-    for frame in range(1, num_time_frame+1):
+    for frame in tqdm(range(1, num_time_frame+1)):
         # Random Q-table
         H = np.random.randint(0, num_Q_tables)
         risk_adverse_Q = compute_risk_adverse_Q(Q_tables, H, num_Q_tables, LAMBDA_P)
@@ -560,18 +561,4 @@ def train(num_time_frame=env.NUM_OF_FRAME,
 
         state = next_state
 
-        print('frame: ',frame)
-    
-
     return state_plot, action_plot, Q_tables, reward_plot, packet_loss_rate_plot, power_level_plot,rate_plot, number_of_sent_packet_plot, number_of_received_packet_plot
-    # IO.save(number_of_received_packet_plot,'PA-number_of_received_packet')
-    # IO.save(number_of_sent_packet_plot,'PA-number_of_sent_packet')
-    # IO.save(reward_plot,'PA-reward')
-    # IO.save(action_plot,'PA-action')
-    # IO.save(state_plot,'PA-state')
-    # IO.save(h_tilde,'PA-h_tilde')
-    # IO.save(device_positions,'PA-device_positions')
-    # IO.save(Q_tables,'PA-Q_tables')
-    # IO.save(packet_loss_rate_plot,'PA-packet_loss_rate')
-    # IO.save(rate_plot,'PA-rate')
-    # IO.save(power_level_plot,'PA-power_level')
