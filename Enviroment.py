@@ -3,8 +3,8 @@ import random as rd
 import matplotlib.pyplot as plt
 
 # the considered space has a width of 90 meters, a length of 90 meters
-length = 150
-width = 150
+length = 200
+width = 200
 
 # Number of APs
 NUM_OF_AP = 1
@@ -54,8 +54,7 @@ def distance_to_AP(pos_of_device):
 # if the distance is satisfied, store it into the array list_of_devices.
 def initialize_devices_pos():
     list_of_devices = []
-    rand_x = np.random.permutation(np.concatenate((np.random.uniform(-length/2,0, int(NUM_OF_DEVICE/2)),np.random.uniform(0,length/2,int(NUM_OF_DEVICE/2))),axis=0))
-    rand_y = np.random.permutation(np.concatenate((np.random.uniform(-width/2,0, int(NUM_OF_DEVICE/2)),np.random.uniform(0,width/2,int(NUM_OF_DEVICE/2))),axis=0))
+    device_pos = [[-45,40],[10,-70],[-25,-20],[-40,15],[60,55],[45,5],[50,-40]]
     for i in range (NUM_OF_DEVICE):
         # Distance from Device #1 to AP and Device #2 to AP is equal
         if(i==0):
@@ -67,12 +66,12 @@ def initialize_devices_pos():
         
         # Distance from Device #3 to AP is greater than from Device #1 and #2 
         elif(i==2):
-            x = -55
-            y = -60
+            x = -85
+            y = -80
 
         else:
-            x = rand_x[i]
-            y = rand_y[i]
+            x = device_pos[i-3][0]
+            y = device_pos[i-3][1]
 
         list_of_devices.append((x,y))
     return list_of_devices

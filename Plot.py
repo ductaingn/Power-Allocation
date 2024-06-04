@@ -3,19 +3,49 @@ import IO
 import matplotlib.pyplot as plt
 import Enviroment as env
 
-def plot_packet_loss_rate(device):
-    plr = IO.load('packet_loss_rate')
-    plrsub=[]
-    plrmw=[]
-    for i in range(len(plr)):
-        plrsub.append(plr[i][device-1,0])
-        plrmw.append(plr[i][device-1,1])
-    plt.plot(plrsub,label='sub')
-    plt.plot(plrmw,label='mw')
-    plt.legend()
+def plot_packet_loss_rate(device=1):
+    # received = IO.load('number_of_received_packet')
+    # sent = IO.load('number_of_sent_packet')
+    # device-=1
+    # received_device_sub, received_device_mW = 0,0
+    # sent_device_sub, sent_device_mW = 0,0
+    # plrsub = []
+    # plrmw = []
+    # for i in range(len(sent)):
+    #     received_device_sub += received[i][device][0]
+    #     received_device_mW += received[i][device][1]
+
+    #     sent_device_sub += sent[i][device][0]
+    #     sent_device_mW += sent[i][device][1]
+        
+    #     plrsub.append(1-received_device_sub/sent_device_sub)
+    #     plrmw.append(1-received_device_mW/sent_device_mW)
+
+    # plt.plot(plrsub,label='sub')
+    # plt.plot(plrmw,label='mw')
+    # plt.legend()
+    # device+=1
+    # plt.title(f'Packet loss rate of device {device}')
+    # plt.show()
+
+    received = IO.load('number_of_received_packet')
+    sent = IO.load('number_of_sent_packet')
+    device-=1
+    received_device = 0
+    sent_device = 0
+    plr = []
+    for i in range(len(sent)):
+        received_device += received[i][device][0] + received[i][device][1]
+
+        sent_device += sent[i][device][0] + sent[i][device][1]
+        
+        plr.append(1-received_device/sent_device)
+
+    plt.plot(plr)
+    device+=1
     plt.title(f'Packet loss rate of device {device}')
     plt.show()
-
+        
 def plot_moving_avg_packet_loss_rate():
     received = IO.load('number_of_received_packet')
     sent = IO.load('number_of_sent_packet')
@@ -77,7 +107,7 @@ def plot_reward():
 
 def plot_position():
     ap_pos = env.AP_POSITION
-    device_pos = IO.load('PA-device_positions')
+    device_pos = IO.load('device_positions')
     plt.title("AP and devices Position")
     plt.scatter(ap_pos[0], ap_pos[1], color = 'r',marker = 's',label = 'AP')
     for i in range(len(device_pos)):
