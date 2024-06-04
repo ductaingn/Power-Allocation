@@ -10,7 +10,7 @@ import tensorflow as tf
 from common_definitions import (
     KERNEL_INITIALIZER, GAMMA, RHO,
     STD_DEV, BUFFER_SIZE, BATCH_SIZE,
-    CRITIC_LR, ACTOR_LR
+    CRITIC_LR, ACTOR_LR, CONFIDENCE
 )
 from buffer import ReplayBuffer
 from utils import OUActionNoise
@@ -258,7 +258,7 @@ def update_state(packet_loss_rate):
                 next_state[k,i] = 0
     return next_state
 
-def compute_number_of_send_packet(action, l_max_estimate, L_k=6, confidence=[0.2,0.6]):
+def compute_number_of_send_packet(action, l_max_estimate, L_k=6, confidence=CONFIDENCE):
     number_of_send_packet = np.zeros((env.NUM_OF_DEVICE,2))
 
     for k in range(env.NUM_OF_DEVICE):
@@ -266,7 +266,7 @@ def compute_number_of_send_packet(action, l_max_estimate, L_k=6, confidence=[0.2
         p_sub_k = action[2*k]
         p_mW_k = action[2*k+1]
         p_sub_proportion = p_sub_k/(p_sub_k+p_mW_k)
-
+        
         if(p_sub_proportion>=confidence[1]):
             action[k*2] = p_sub_k+p_mW_k
             action[k*2+1] = 0

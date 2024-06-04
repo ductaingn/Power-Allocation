@@ -9,7 +9,7 @@ from tqdm import tqdm
 if __name__=="__main__":
     num_state = 2*(env.NUM_OF_DEVICE)
     num_action = 2*(env.NUM_OF_DEVICE)
-    NUM_EPISODE = 2
+    NUM_EPISODE = 500
     model = DDPGModel.Brain(env.NUM_OF_DEVICE*2, num_action, 1, 0)
     state = np.zeros((env.NUM_OF_DEVICE,2))
     action = model.act(state,_notrandom=False)
@@ -35,12 +35,24 @@ if __name__=="__main__":
     number_of_send_packet_plot = []
     rate_plot = []
     action_plot = []
+    epsilon_plot = []
 
-    for episode in range(NUM_EPISODE):
-        EPSILON = 1
-        LAMBDA = 0.995
+    EPSILON = 1
+    LAMBDA = 0.99
+    MIN_VALUE = 0
+    REWARD_TARGET = 10
+    STEP_TO_TAKE = REWARD_TARGET
+    REWARD_INCREMENT = 1
+    REWARD_THRESHHOLD = 0
+    CHANGE = (EPSILON - MIN_VALUE)/STEP_TO_TAKE
 
-        for frame in tqdm(range(1,2500+1)):
+    for episode in tqdm(range(NUM_EPISODE)):
+        if(reward >= REWARD_THRESHHOLD):
+            EPSILON = EPSILON - CHANGE
+            REWARD_THRESHHOLD = REWARD_THRESHHOLD + REWARD_INCREMENT
+            epsilon_plot.append(EPSILON)
+
+        for frame in range(1,21):
             p = np.random.uniform(0,1)
             if(p<EPSILON):
                 # Random
@@ -48,8 +60,6 @@ if __name__=="__main__":
             else:
                 # Random
                 action = model.act(np.expand_dims(state.flatten(),axis=0),_notrandom=False)
-
-            EPSILON = EPSILON * LAMBDA
 
             # Perform action
             l_max_estimate = Model.compute_l_max(adverage_r)
@@ -93,3 +103,4 @@ if __name__=="__main__":
     IO.save(packet_loss_rate_plot,'packet_loss_rate')
     IO.save(rate_plot,'rate')
     IO.save(action_plot,'action')
+    IO.save(epsilon_plot,'epsilon')
