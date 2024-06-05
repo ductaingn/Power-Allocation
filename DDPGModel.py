@@ -35,6 +35,10 @@ def InitActorNetwork(num_states=24, num_actions=4, action_high=1):
     inputs = tf.keras.layers.Input(shape=(num_states,), dtype=tf.float32)
     out = tf.keras.layers.Dense(600, activation=tf.nn.relu,
                                 kernel_initializer=KERNEL_INITIALIZER)(inputs)
+    out = tf.keras.layers.Dense(600, activation=tf.nn.relu,
+                                kernel_initializer=KERNEL_INITIALIZER)(out)
+    out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
+                                kernel_initializer=KERNEL_INITIALIZER)(out)
     out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
                                 kernel_initializer=KERNEL_INITIALIZER)(out)
     out = tf.keras.layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(
@@ -64,10 +68,14 @@ def InitCriticNetwork(num_states=24, num_actions=4, action_high=1):
     state_input = tf.keras.layers.Input(shape=(num_states), dtype=tf.float32)
     state_out = tf.keras.layers.Dense(600, activation=tf.nn.relu,
                                       kernel_initializer=KERNEL_INITIALIZER)(state_input)
+    state_out = tf.keras.layers.Dense(600, activation=tf.nn.relu,
+                                      kernel_initializer=KERNEL_INITIALIZER)(state_out)
     state_out = tf.keras.layers.BatchNormalization()(state_out)
     state_out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
                                       kernel_initializer=KERNEL_INITIALIZER)(state_out)
-
+    state_out = tf.keras.layers.BatchNormalization()(state_out)
+    state_out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
+                                      kernel_initializer=KERNEL_INITIALIZER)(state_out)
     # Action as input
     action_input = tf.keras.layers.Input(shape=(num_actions), dtype=tf.float32)
     action_out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
@@ -248,14 +256,16 @@ class Brain:  # pylint: disable=too-many-instance-attributes
         except OSError as err:
             logging.warning("Weights files cannot be found, %s", err)
 
-def update_state(packet_loss_rate):
-    next_state = np.zeros((env.NUM_OF_DEVICE,2))
+def update_state(packet_loss_rate, num_received_packet, action):
+    next_state = np.zeros((env.NUM_OF_DEVICE,6))
     for k in range(env.NUM_OF_DEVICE):
         for i in range(2):
             if(packet_loss_rate[k,i]<=0.1):
                 next_state[k,i] = 1
             else:
                 next_state[k,i] = 0
+            next_state[k, i+2] = num_received_packet[k, i]
+            next_state[k, i+4] = action[k*2+i]
     return next_state
 
 def compute_number_of_send_packet(action, l_max_estimate, L_k=6, confidence=CONFIDENCE):

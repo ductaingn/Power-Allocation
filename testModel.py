@@ -7,11 +7,11 @@ import tensorflow as tf
 from tqdm import tqdm
 
 if __name__=="__main__":
-    num_state = 2*(env.NUM_OF_DEVICE)
+    num_state = 6*(env.NUM_OF_DEVICE)
     num_action = 2*(env.NUM_OF_DEVICE)
-    NUM_EPISODE = 500
-    model = DDPGModel.Brain(env.NUM_OF_DEVICE*2, num_action, 1, 0)
-    state = np.zeros((env.NUM_OF_DEVICE,2))
+    NUM_EPISODE = 250
+    model = DDPGModel.Brain(num_state, num_action, 1, 0)
+    state = np.zeros((env.NUM_OF_DEVICE,6))
     action = model.act(state,_notrandom=False)
     reward = 0
 
@@ -37,6 +37,9 @@ if __name__=="__main__":
     action_plot = []
     epsilon_plot = []
 
+    critic_loss = []
+    actor_loss = []
+
     EPSILON = 1
     LAMBDA = 0.99
     MIN_VALUE = 0
@@ -50,7 +53,7 @@ if __name__=="__main__":
         if(reward >= REWARD_THRESHHOLD):
             EPSILON = EPSILON - CHANGE
             REWARD_THRESHHOLD = REWARD_THRESHHOLD + REWARD_INCREMENT
-            epsilon_plot.append(EPSILON)
+        epsilon_plot.append(EPSILON)
 
         for frame in range(1,21):
             p = np.random.uniform(0,1)
@@ -89,11 +92,13 @@ if __name__=="__main__":
             reward, instance_reward = Model.compute_reward(state,action,number_of_send_packet,number_of_received_packet,reward,frame)
             reward_plot.append(reward)
 
-            next_state = DDPGModel.update_state(packet_loss_rate)
+            next_state = DDPGModel.update_state(packet_loss_rate,number_of_received_packet,action)
 
             model.remember(state.flatten(), reward, next_state.flatten(), 0)
             batch = model.buffer.get_batch()
-            model.learn(batch)
+            c_l, a_l =model.learn(batch)
+            critic_loss.append(c_l)
+            actor_loss.append(a_l)
 
             state = next_state
 
@@ -104,3 +109,5 @@ if __name__=="__main__":
     IO.save(rate_plot,'rate')
     IO.save(action_plot,'action')
     IO.save(epsilon_plot,'epsilon')
+    IO.save(critic_loss,'critic_loss')
+    IO.save(actor_loss,'actor_loss')
