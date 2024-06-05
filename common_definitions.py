@@ -22,4 +22,5 @@ CRITIC_LR = 1e-3
 ACTOR_LR = 1e-4
 WARM_UP = 1  # num of warm up epochs
 
-CONFIDENCE = [0.2,0.6]
+CONFIDENCE = [0.45,0.55]
+best_confidence = [0.45,0.55]

@@ -62,7 +62,7 @@ def plot_moving_avg_packet_loss_rate():
         p.append(np.mean(plr[0:i]))
     plt.plot(p,label='plr')
     plt.legend()
-    plt.title('Moving average Packet loss rate of all devices-PA')
+    plt.title('Moving average Sum Packet loss rate of all devices')
     plt.show()
 
 def scatter_packet_loss_rate(device='all'):
@@ -328,4 +328,59 @@ def bench_mark():
     plt.pie(chart,startangle=90)
     plt.axis('equal')
     plt.legend(loc='right',labels=labels)
+    plt.show()
+
+def plot_power_proportion():
+    action = np.array(IO.load('action'))
+    action = action.reshape((len(action),2,10))
+    fig, ax = plt.subplots(2,5)
+    for i in range(env.NUM_OF_DEVICE):
+        power_device_sub,power_device_mW = action[:,:,i][:,0], action[:,:,i][:,1]
+        p_sub, p_mw = [power_device_sub[0]],[power_device_mW[0]]
+        for j in range(1,len(power_device_sub)):
+            p_sub.append(1/j*(p_sub[-1]*(j-1)+power_device_sub[j]))
+            p_mw.append(1/j*(p_mw[-1]*(j-1)+power_device_mW[j]))
+
+        ax_col = i%5
+        ax_row = int(i/5)
+        ax[ax_row,ax_col].plot(p_sub,label='Sub6-GHz')
+        ax[ax_row,ax_col].plot(p_mw,label='mmWave')
+        ax[ax_row,ax_col].legend()
+        ax[ax_row,ax_col].set_title(f'Device {i+1}')
+        ax[ax_row,ax_col].set_xlabel('Frame x Epoch')
+        ax[ax_row,ax_col].set_ylabel('Power proportion')
+        ax[ax_row,ax_col].set_ylim([-0.01,0.15])
+
+    fig.suptitle('Power proportion')
+    plt.show()
+
+def plot_all_device_packet_loss_rate():
+    received = IO.load('number_of_received_packet')
+    sent = IO.load('number_of_sent_packet')
+
+    px = 1/plt.rcParams['figure.dpi']
+    fig, ax = plt.subplots(2,5,figsize=(2240*px,1400*px))
+    for k in range(env.NUM_OF_DEVICE):
+        ax_col = k%5
+        ax_row = int(k/5)
+
+        received_device = 0
+        sent_device = 0
+        plr = []
+        for i in range(len(sent)):
+            received_device += received[i][k][0] + received[i][k][1]
+            sent_device += sent[i][k][0] + sent[i][k][1]
+            
+            plr.append(1-received_device/sent_device)
+
+        ax[ax_row,ax_col].plot(plr,label='PLR')
+        ax[ax_row,ax_col].set_xlabel('Frame x Epoch')
+        ax[ax_row,ax_col].set_ylabel('Packet loss rate')
+        ax[ax_row,ax_col].set_title(f'Device {k+1}')
+        ax[ax_row,ax_col].set_ylim([-0.02,1.02])
+        ax[ax_row,ax_col].axhline(y=0.1,color='red',linestyle='--',label='$\\rho_{max}$')
+        ax[ax_row,ax_col].legend()
+
+    fig.suptitle('Moving avg. Packet loss rate')
+    plt.savefig('test.pdf')
     plt.show()
