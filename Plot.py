@@ -332,7 +332,7 @@ def bench_mark():
 
 def plot_power_proportion():
     action = np.array(IO.load('action'))
-    action = action.reshape((len(action),2,10))
+    action = action.reshape((len(action),4,env.NUM_OF_DEVICE))
     fig, ax = plt.subplots(2,5)
     for i in range(env.NUM_OF_DEVICE):
         power_device_sub,power_device_mW = action[:,:,i][:,0], action[:,:,i][:,1]
