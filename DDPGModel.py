@@ -42,9 +42,12 @@ def InitActorNetwork(num_states=24, num_actions=4, action_high=1):
     out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
                                 kernel_initializer=KERNEL_INITIALIZER)(out)
     out = tf.keras.layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(
-        out) * action_high
+        out)
     
-    outputs = tf.keras.layers.Softmax(axis=-1)(out)
+    power = tf.keras.layers.Softmax(axis=-1)(out[:,0:int(num_actions/2)])
+    interface = tf.keras.layers.Dense(int(num_actions/2), activation=tf.nn.relu,
+                                     kernel_initializer=last_init)(out[:,int(num_actions/2):])
+    outputs = tf.keras.layers.Concatenate()([power,interface])
 
     model = tf.keras.Model(inputs, outputs)
     return model
@@ -80,7 +83,7 @@ def InitCriticNetwork(num_states=24, num_actions=4, action_high=1):
     action_input = tf.keras.layers.Input(shape=(num_actions), dtype=tf.float32)
     action_out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
                                        kernel_initializer=KERNEL_INITIALIZER)(
-        action_input / action_high)
+        action_input)
 
     # Both are passed through seperate layer before concatenating
     added = tf.keras.layers.Add()([state_out, action_out])
@@ -199,12 +202,13 @@ class Brain:  # pylint: disable=too-many-instance-attributes
         else:
             def soft_max(x):
                 return np.exp(x)/np.sum(np.exp(x),axis=0)
-            self.cur_action = soft_max(
-                np.random.uniform(self.action_low, self.action_high, self.num_actions)
-                + (self.noise() if noise else 0)
-            )
+            self.cur_action = np.concatenate(
+                (soft_max(
+                    np.random.uniform(0,1, int(self.num_actions/2))
+                    + (self.noise() if noise else 0)), 
+                np.random.uniform(0,6,int(self.num_actions/2))),axis=0 )
 
-        self.cur_action = np.clip(self.cur_action, self.action_low, self.action_high)
+        # self.cur_action = np.clip(self.cur_action, self.action_low, self.action_high)
         return self.cur_action
 
     def remember(self, prev_state, reward, state, done):
@@ -260,41 +264,61 @@ def update_state(packet_loss_rate, num_received_packet, action):
     next_state = np.zeros((env.NUM_OF_DEVICE,6))
     for k in range(env.NUM_OF_DEVICE):
         for i in range(2):
-            if(packet_loss_rate[k,i]<=0.1):
-                next_state[k,i] = 1
-            else:
-                next_state[k,i] = 0
+            # if(packet_loss_rate[k,i]<=0.1):
+            #     next_state[k,i] = 1
+            # else:
+            #     next_state[k,i] = 0
+            next_state[k,i] = packet_loss_rate[k,i]
             next_state[k, i+2] = num_received_packet[k, i]
             next_state[k, i+4] = action[k*2+i]
     return next_state
 
-def compute_number_of_send_packet(action, l_max_estimate, L_k=6, confidence=CONFIDENCE):
+def compute_number_of_send_packet(action, l_max_estimate, packet_loss_rate, L_k=6, confidence=CONFIDENCE):
     number_of_send_packet = np.zeros((env.NUM_OF_DEVICE,2))
 
     for k in range(env.NUM_OF_DEVICE):
         # Action is flattened
-        p_sub_k = action[2*k]
-        p_mW_k = action[2*k+1]
-        p_sub_proportion = p_sub_k/(p_sub_k+p_mW_k)
+        confidence_sub = action[4*k+2]
+        confidence_mw = action[4*k+3]
+        sub_proportion = confidence_sub/(confidence_sub+confidence_mw) if(confidence_sub+confidence_mw>0) else 0.5
         
-        if(p_sub_proportion>=confidence[1]):
-            action[k*2] = p_sub_k+p_mW_k
-            action[k*2+1] = 0
-            number_of_send_packet[k,0] = max(1,min(int(l_max_estimate[0,k]*p_sub_proportion),L_k))
+        if(sub_proportion>=confidence[1]):
+            action[k*4] = confidence_sub + confidence_mw
+            action[k*4+1] = 0
+            number_of_send_packet[k,0] = max(1,min(int(l_max_estimate[0,k]*sub_proportion*packet_loss_rate[k,0]),L_k))
             number_of_send_packet[k,1] = 0
 
-        elif(confidence[1]>p_sub_proportion>=confidence[0]):
-            number_of_send_packet[k,0] = max(1,min(int(l_max_estimate[0,k]*p_sub_proportion),L_k))
-            number_of_send_packet[k,1] = max(1,min(int(l_max_estimate[1,k]*(1-p_sub_proportion)),L_k))
+        elif(confidence[1]>sub_proportion>=confidence[0]):
+            number_of_send_packet[k,0] = max(1,min(int(l_max_estimate[0,k]*sub_proportion*packet_loss_rate[k,0]),L_k))
+            number_of_send_packet[k,1] = max(1,min(int(l_max_estimate[1,k]*(1-sub_proportion*packet_loss_rate[k,1])),L_k))
 
         else:
             number_of_send_packet[k,0] = 0
-            number_of_send_packet[k,1] = max(1,min(int(l_max_estimate[1,k]*(1-p_sub_proportion)),L_k))
-            action[k*2] = 0
-            action[k*2+1] = p_sub_k+p_mW_k
+            number_of_send_packet[k,1] = max(1,min(int(l_max_estimate[1,k]*(1-sub_proportion)),L_k))
+            action[k*4] = 0
+            action[k*4+1] = confidence_sub+confidence_mw
 
     return number_of_send_packet
 
+
+def test_compute_number_send_packet(action,L_k=6):
+    l_estimate = np.reshape(action,(2,2,env.NUM_OF_DEVICE))[1].transpose()
+    for k in range(env.NUM_OF_DEVICE):
+        if(np.all(l_estimate[k]<1)):
+            use_interface = np.argmax(l_estimate[k])
+            l_estimate[k,use_interface] = 1
+        else:
+            l_estimate[k,0] = min(int(l_estimate[k,0]),L_k)
+            l_estimate[k,1] = min(int(l_estimate[k,1]),L_k)
+
+        if(l_estimate[k,0]==0):
+            action[2*k+1] += action[2*k]
+            action[2*k] = 0
+        elif(l_estimate[k,1]==0):
+            action[2*k] += action[2*k+1]
+            action[2*k+1] = 0
+
+    return l_estimate
 
 def allocate(number_of_send_packet):
     sub = []  # Stores index of subchannel device will allocate
@@ -355,3 +379,33 @@ def compute_rate(device_positions, h_tilde, allocation, action,frame):
     r.append(r_sub)
     r.append(r_mW)
     return r
+
+def sigmoid(x):
+    return 1/(1+np.exp(-200*env.NUM_OF_DEVICE*x))
+
+def compute_reward(state, action, num_of_send_packet, num_of_received_packet, old_reward_value,packet_loss_rate, frame_num):
+    sum = 0
+    risk = 0
+    for k in range(env.NUM_OF_DEVICE):
+        state_k = state[k]
+        prev_pow_sub, prev_pow_mw = state_k[-2], state_k[-1]
+        cur_pow_sub, cur_pow_mw = action[2*k],action[2*k+1]
+        sum = sum + (num_of_received_packet[k, 0] + num_of_received_packet[k, 1])/(
+            num_of_send_packet[k, 0] + num_of_send_packet[k, 1]) + (1 - state_k[0]) + (1-state_k[1])
+
+        risk = risk + sigmoid(
+                        -(cur_pow_sub-prev_pow_sub)/(1-prev_pow_sub)*(1-packet_loss_rate[k,0]) + \
+                        -(cur_pow_mw-prev_pow_mw)/(1-prev_pow_mw)*(1-packet_loss_rate[k,1])
+                        # (cur_pow_sub-prev_pow_sub)/(1-prev_pow_sub)*packet_loss_rate[k,0] + \
+                        # (cur_pow_mw-prev_pow_mw)/(1-prev_pow_mw)*packet_loss_rate[k,1]
+                    )
+    sum = ((frame_num - 1)*old_reward_value + sum)/frame_num
+    return [sum, sum - risk]
+
+# l_max = r*T/d
+def estimate_l_max(r,state,packet_loss_rate):
+    l = np.multiply(r, env.T/env.D)
+    qos_violated = np.ones(shape=(env.NUM_OF_DEVICE,2)) - state[:,0:2]
+    packet_successful_rate = np.ones(shape=packet_loss_rate.shape)-packet_loss_rate
+    res = np.floor(l*packet_successful_rate.transpose()*qos_violated.transpose())
+    return res
