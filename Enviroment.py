@@ -156,7 +156,7 @@ def r_sub(h, device_index,power):
 
 
 def r_mW(h, device_index,power):
-    return W_MW*np.log2(1+gamma_sub(h,power))
+    return W_MW*np.log2(1+gamma_mW(h,power))
 
 
 def packet_loss_rate(t, old_packet_loss_rate, omega_kv, l_kv):
