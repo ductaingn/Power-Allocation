@@ -41,12 +41,14 @@ def InitActorNetwork(num_states=24, num_actions=4, action_high=1):
                                 kernel_initializer=KERNEL_INITIALIZER)(out)
     out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
                                 kernel_initializer=KERNEL_INITIALIZER)(out)
-    out = tf.keras.layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(
+    out = tf.keras.layers.Dense(num_actions, activation=tf.nn.relu, kernel_initializer=KERNEL_INITIALIZER)(
         out)
     
-    power = tf.keras.layers.Softmax(axis=-1)(out[:,0:int(num_actions/2)])
-    interface = tf.keras.layers.Dense(int(num_actions/2), activation=tf.nn.relu,
-                                     kernel_initializer=last_init)(out[:,int(num_actions/2):])
+    power = tf.keras.layers.Dense(int(num_actions/2), activation=tf.nn.relu, kernel_initializer=last_init)(out)
+    power = tf.keras.layers.Softmax(axis=-1)(power)
+    interface = tf.keras.layers.Dense(int(num_actions/2),activation=tf.nn.relu, kernel_initializer=last_init)(out)
+    interface = tf.keras.layers.Softmax(axis=-1)(interface)
+    
     outputs = tf.keras.layers.Concatenate()([power,interface])
 
     model = tf.keras.Model(inputs, outputs)
@@ -202,11 +204,16 @@ class Brain:  # pylint: disable=too-many-instance-attributes
         else:
             def soft_max(x):
                 return np.exp(x)/np.sum(np.exp(x),axis=0)
-            self.cur_action = np.concatenate(
-                (soft_max(
+            self.cur_action = np.concatenate((
+                soft_max(
                     np.random.uniform(0,1, int(self.num_actions/2))
-                    + (self.noise() if noise else 0)), 
-                np.random.uniform(0,6,int(self.num_actions/2))),axis=0 )
+                    + (self.noise() if noise else 0)
+                    ),
+                soft_max(
+                    np.random.uniform(0,1, int(self.num_actions/2))
+                    + (self.noise() if noise else 0)
+                    )                  
+            ),axis=0)
 
         # self.cur_action = np.clip(self.cur_action, self.action_low, self.action_high)
         return self.cur_action
@@ -261,6 +268,15 @@ class Brain:  # pylint: disable=too-many-instance-attributes
             logging.warning("Weights files cannot be found, %s", err)
 
 def update_state(packet_loss_rate, num_received_packet, action):
+    r'''
+    # state = {state_k} \forall k in K
+
+    # state_k = {
+                    packet_loss_rate_sub, packet_loss_rate_mW, 
+                    number_received_packet_sub(t-1), number_received_packet_mW(t-1),
+                    power_sub(t-1), power_mW(t-1)
+                }
+    '''
     next_state = np.zeros((env.NUM_OF_DEVICE,6))
     for k in range(env.NUM_OF_DEVICE):
         for i in range(2):
@@ -301,24 +317,37 @@ def compute_number_of_send_packet(action, l_max_estimate, packet_loss_rate, L_k=
     return number_of_send_packet
 
 
-def test_compute_number_send_packet(action,L_k=6):
-    l_estimate = np.reshape(action,(2,2,env.NUM_OF_DEVICE))[1].transpose()
-    for k in range(env.NUM_OF_DEVICE):
-        if(np.all(l_estimate[k]<1)):
-            use_interface = np.argmax(l_estimate[k])
-            l_estimate[k,use_interface] = 1
-        else:
-            l_estimate[k,0] = min(int(l_estimate[k,0]),L_k)
-            l_estimate[k,1] = min(int(l_estimate[k,1]),L_k)
+def test_compute_number_send_packet(action,l_max_estimate, L_k=6,confidence=CONFIDENCE):
+    proportion = np.reshape(action,(2,env.NUM_OF_DEVICE,2))[1]
+    number_of_send_packet = np.zeros((env.NUM_OF_DEVICE,2))
 
-        if(l_estimate[k,0]==0):
-            action[2*k+1] += action[2*k]
+    for k in range(env.NUM_OF_DEVICE):
+        power_sub = action[2*k]
+        power_mw = action[2*k+1]
+        pro_sub = proportion[k,0]/(proportion[k,0]+proportion[k,1])
+       
+        # Use sub6 only
+        if(pro_sub>=confidence[1]):
+            number_of_send_packet[k,0] = max(1,min([l_max_estimate[0,k],np.ceil(pro_sub*L_k),L_k]))
+            number_of_send_packet[k,1] = 0
+
+        elif(confidence[1]>pro_sub>=confidence[0]):
+            number_of_send_packet[k,0] = max(1,min([l_max_estimate[0,k],np.floor(pro_sub*L_k),L_k]))
+            number_of_send_packet[k,1] = max(1,min([l_max_estimate[1,k],np.ceil((1-pro_sub)*L_k),L_k]))
+
+        else:
+            number_of_send_packet[k,0] = 0
+            number_of_send_packet[k,1] = max(1,min([l_max_estimate[1,k],np.ceil((1-pro_sub)*L_k),L_k]))
+
+        # Collect power
+        if(number_of_send_packet[k,0]==0):
+            action[2*k+1] += power_sub
             action[2*k] = 0
-        elif(l_estimate[k,1]==0):
-            action[2*k] += action[2*k+1]
+        if(number_of_send_packet[k,1]==0):
+            action[2*k] += power_mw
             action[2*k+1] = 0
 
-    return l_estimate
+    return number_of_send_packet
 
 def allocate(number_of_send_packet):
     sub = []  # Stores index of subchannel device will allocate
@@ -327,7 +356,7 @@ def allocate(number_of_send_packet):
         sub.append(-1)
         mW.append(-1)
 
-    rand_sub = [] 
+    rand_sub = []
     rand_mW = []
     for i in range(env.NUM_OF_SUB_CHANNEL):
         rand_sub.append(i)
@@ -368,12 +397,12 @@ def compute_rate(device_positions, h_tilde, allocation, action,frame):
         if (sub_channel_index != -1):
             h_sub_k = env.compute_h_sub(
                 device_positions,device_index=k,h_tilde=h_tilde_sub[k, sub_channel_index])
-            p = action[2*k]*env.P_SUM
+            p = action[4*k]*env.P_SUM
             r_sub[k] = env.r_sub(h_sub_k, device_index=k,power=p)
         if (mW_beam_index != -1):
             h_mW_k = env.compute_h_mW(device_positions, device_index=k,
                                       eta=5*np.pi/180, beta=0, h_tilde=h_tilde_mW[k, mW_beam_index],frame=frame)
-            p = action[2*k+1]*env.P_SUM
+            p = action[4*k+1]*env.P_SUM
             r_mW[k] = env.r_mW(h_mW_k, device_index=k,power=p)
 
     r.append(r_sub)
@@ -389,18 +418,24 @@ def compute_reward(state, action, num_of_send_packet, num_of_received_packet, ol
     for k in range(env.NUM_OF_DEVICE):
         state_k = state[k]
         prev_pow_sub, prev_pow_mw = state_k[-2], state_k[-1]
-        cur_pow_sub, cur_pow_mw = action[2*k],action[2*k+1]
+        cur_pow_sub, cur_pow_mw = action[4*k],action[4*k+1]
+        satisfaction = [0,0]
+        if(state_k[0]<0.1):
+            satisfaction[0] = 1
+        if(state_k[1]<0.1):
+            satisfaction[1] = 1
         sum = sum + (num_of_received_packet[k, 0] + num_of_received_packet[k, 1])/(
-            num_of_send_packet[k, 0] + num_of_send_packet[k, 1]) + (1 - state_k[0]) + (1-state_k[1])
-
+            num_of_send_packet[k, 0] + num_of_send_packet[k, 1]) - (1 - satisfaction[0]) - (1-satisfaction[1])
+        
         risk = risk + sigmoid(
                         -(cur_pow_sub-prev_pow_sub)/(1-prev_pow_sub)*(1-packet_loss_rate[k,0]) + \
                         -(cur_pow_mw-prev_pow_mw)/(1-prev_pow_mw)*(1-packet_loss_rate[k,1])
                         # (cur_pow_sub-prev_pow_sub)/(1-prev_pow_sub)*packet_loss_rate[k,0] + \
                         # (cur_pow_mw-prev_pow_mw)/(1-prev_pow_mw)*packet_loss_rate[k,1]
                     )
+        
     sum = ((frame_num - 1)*old_reward_value + sum)/frame_num
-    return [sum, sum - risk]
+    return [sum, sum]
 
 # l_max = r*T/d
 def estimate_l_max(r,state,packet_loss_rate):
