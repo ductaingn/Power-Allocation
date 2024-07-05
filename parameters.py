@@ -1,0 +1,6 @@
+import Enviroment as env
+
+NUM_STATE = 6*(env.NUM_OF_DEVICE)
+NUM_ACTION = 4*(env.NUM_OF_DEVICE)
+NUM_EPISODE = 250
+EPISODE_LENGTH = 20
