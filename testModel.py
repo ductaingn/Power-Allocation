@@ -10,7 +10,7 @@ def train():
     num_state = parameters.NUM_STATE
     num_action = parameters.NUM_ACTION
     model = DDPGModel.Brain(num_state, num_action, 1, 0)
-    state = np.zeros((env.NUM_OF_DEVICE,6))
+    state = np.zeros((env.NUM_OF_DEVICE,8))
     action = model.act(state,_notrandom=False)
     reward, instance_reward = 0,0
 
@@ -35,7 +35,7 @@ def train():
     critic_loss = []
     actor_loss = []
 
-    EPSILON = 0.9
+    EPSILON = 1
     LAMBDA = 0.99
     MIN_VALUE = 0
     REWARD_TARGET = 10
@@ -43,12 +43,14 @@ def train():
     REWARD_INCREMENT = 1
     REWARD_THRESHHOLD = 0
     CHANGE = (EPSILON - MIN_VALUE)/STEP_TO_TAKE
+    # model.load_weights('./DDPG_weights/')
+
     for episode in tqdm(range(parameters.NUM_EPISODE)):
         # if(episode > 50 and instance_reward > REWARD_THRESHHOLD):
         #     EPSILON = max(0.1,EPSILON - CHANGE)
         #     REWARD_THRESHHOLD = REWARD_THRESHHOLD + REWARD_INCREMENT
         if(episode>30):
-            EPSILON = max(0.1,EPSILON*LAMBDA)
+            EPSILON = max(0.01,EPSILON*LAMBDA)
         epsilon_plot.append(EPSILON)
 
         p = np.random.uniform(0,1,parameters.EPISODE_LENGTH)
@@ -89,7 +91,7 @@ def train():
             reward, instance_reward = DDPGModel.compute_reward(state,action,number_of_send_packet,number_of_received_packet,reward,packet_loss_rate,frame)
             reward_plot.append(instance_reward)
 
-            next_state = DDPGModel.update_state(packet_loss_rate,number_of_received_packet,action)
+            next_state = DDPGModel.update_state(packet_loss_rate,number_of_received_packet,action,adverage_r)
 
             model.remember(state.flatten(), instance_reward, next_state.flatten(), 0)
             batch = model.buffer.get_batch()
@@ -115,7 +117,7 @@ def test():
     num_state = parameters.NUM_STATE
     num_action = parameters.NUM_ACTION
     model = DDPGModel.Brain(num_state, num_action, 1, 0)
-    state = np.zeros((env.NUM_OF_DEVICE,6))
+    state = np.zeros((env.NUM_OF_DEVICE,8))
     action = model.act(state,_notrandom=False)
     reward, instance_reward = 0,0
 
@@ -127,7 +129,6 @@ def test():
     packet_loss_rate = np.zeros((env.NUM_OF_DEVICE,2))
 
     adverage_r = DDPGModel.compute_rate(device_positions,h_tilde[0],allocation,action,1)
-    rate = DDPGModel.compute_rate(device_positions,h_tilde[0],allocation,action,1)
 
     reward_plot = []
     packet_loss_rate_plot = []
@@ -165,11 +166,11 @@ def test():
         reward, instance_reward = DDPGModel.compute_reward(state,action,number_of_send_packet,number_of_received_packet,reward,packet_loss_rate,frame)
         reward_plot.append(instance_reward)
 
-        next_state = DDPGModel.update_state(packet_loss_rate,number_of_received_packet,action)
+        next_state = DDPGModel.update_state(packet_loss_rate,number_of_received_packet,action,adverage_r)
 
         state = next_state
 
-    model.save_weights('./DDPG_weights/')
+    # model.save_weights('./DDPG_weights/')
     IO.save(reward_plot,'reward')
     IO.save(number_of_send_packet_plot,'number_of_sent_packet')
     IO.save(number_of_received_packet_plot,'number_of_received_packet')
