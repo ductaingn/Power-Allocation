@@ -332,10 +332,10 @@ def bench_mark():
 
 def plot_power_proportion():
     action = np.array(IO.load('action'))
-    action = action.reshape((len(action),4,env.NUM_OF_DEVICE))
+    power = action[:,:env.NUM_OF_DEVICE*2].reshape((len(action),env.NUM_OF_DEVICE,2))
     fig, ax = plt.subplots(2,5)
     for i in range(env.NUM_OF_DEVICE):
-        power_device_sub,power_device_mW = action[:,:,i][:,0], action[:,:,i][:,1]
+        power_device_sub, power_device_mW = power[:,i,0], power[:,i,1]
         p_sub, p_mw = [power_device_sub[0]],[power_device_mW[0]]
         for j in range(1,len(power_device_sub)):
             p_sub.append(1/j*(p_sub[-1]*(j-1)+power_device_sub[j]))
@@ -349,7 +349,7 @@ def plot_power_proportion():
         ax[ax_row,ax_col].set_title(f'Device {i+1}')
         ax[ax_row,ax_col].set_xlabel('Frame x Epoch')
         ax[ax_row,ax_col].set_ylabel('Power proportion')
-        ax[ax_row,ax_col].set_ylim([-0.01,0.15])
+        ax[ax_row,ax_col].set_ylim([-0.01,1.01])
 
     fig.suptitle('Power proportion')
     plt.show()
@@ -382,5 +382,4 @@ def plot_all_device_packet_loss_rate():
         ax[ax_row,ax_col].legend()
 
     fig.suptitle('Moving avg. Packet loss rate')
-    plt.savefig('test.pdf')
     plt.show()

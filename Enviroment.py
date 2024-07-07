@@ -1,6 +1,4 @@
 import numpy as np
-import random as rd
-import matplotlib.pyplot as plt
 
 # the considered space has a width of 90 meters, a length of 90 meters
 length = 200
@@ -9,9 +7,9 @@ width = 200
 # Number of APs
 NUM_OF_AP = 1
 # Number of Devices K
-NUM_OF_DEVICE = 3
+NUM_OF_DEVICE = 10
 # Number of Sub-6Ghz channels N and mmWave beam M
-NUM_OF_SUB_CHANNEL = 4 
+NUM_OF_SUB_CHANNEL = 4
 if(NUM_OF_DEVICE == 10):
     NUM_OF_SUB_CHANNEL = 16
 NUM_OF_BEAM = 4 
@@ -87,7 +85,7 @@ def path_loss_mW_los(distance,frame):
     return 61.4 + 20*(np.log10(distance))+X
 
 
-def path_loss_mw_nlos(distance,frame):
+def path_loss_mW_nlos(distance,frame):
     X = NLOS_PATH_LOSS[frame]
     return 72 + 29.2*(np.log10(distance))+X
 
@@ -119,7 +117,7 @@ def compute_h_mW(list_of_devices, device_index, h_tilde, frame,eta=5*np.pi/180, 
     h = 0
     # device blocked by obstacle
     if (device_index == 1 or device_index == 5):
-        path_loss = path_loss_mw_nlos(distance_to_AP(list_of_devices[device_index]),frame)
+        path_loss = path_loss_mW_nlos(distance_to_AP(list_of_devices[device_index]),frame)
         h = np.abs(G(eta, beta)*h_tilde* pow(10, -path_loss/20)*0.01)**2  # G_Rx^k=epsilon
     # device not blocked
     else:
@@ -129,8 +127,8 @@ def compute_h_mW(list_of_devices, device_index, h_tilde, frame,eta=5*np.pi/180, 
     return h
 
 # gamma_sub(h,k,n) (t) is the Signal to Interference-plus-Noise Ratio (SINR) from AP to device k on subchannel n with channel coefficient h
-def gamma_sub(h,AP_index=1, power=P_SUM):
-    power = h*power
+def gamma_sub(h,AP_index=1, p=P_SUM):
+    power = h*p
     interference_plus_noise = W_SUB*SIGMA_SQR
     # for b in range(NUM_OF_AP):
     #     if(b!=AP_index):
@@ -140,8 +138,8 @@ def gamma_sub(h,AP_index=1, power=P_SUM):
 # gamma_mW(k,m) (t) is the Signal to Interference-plus-Noise Ratio (SINR) from AP to device k on beam m with channel coeffiction h
 
 
-def gamma_mW(h,AP_index=1, power=P_SUM):
-    power = h*power
+def gamma_mW(h,AP_index=1, p=P_SUM):
+    power = h*p
     interference_plus_noise = W_MW*SIGMA_SQR
     # for b in range(NUM_OF_AP):
     #     if(b!=AP_index):

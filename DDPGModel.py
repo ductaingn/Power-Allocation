@@ -33,20 +33,26 @@ def InitActorNetwork(num_states=24, num_actions=4, action_high=1):
     last_init = tf.random_normal_initializer(stddev=0.0005)
 
     inputs = tf.keras.layers.Input(shape=(num_states,), dtype=tf.float32)
-    out = tf.keras.layers.Dense(600, activation=tf.nn.relu,
-                                kernel_initializer=KERNEL_INITIALIZER)(inputs)
-    out = tf.keras.layers.Dense(600, activation=tf.nn.relu,
-                                kernel_initializer=KERNEL_INITIALIZER)(out)
-    out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
-                                kernel_initializer=KERNEL_INITIALIZER)(out)
-    out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
-                                kernel_initializer=KERNEL_INITIALIZER)(out)
-    out = tf.keras.layers.Dense(num_actions, activation=tf.nn.relu, kernel_initializer=KERNEL_INITIALIZER)(
-        out)
+    reshaped = tf.keras.layers.Reshape((env.NUM_OF_DEVICE,num_states//env.NUM_OF_DEVICE))(inputs)
+    embed = tf.keras.layers.Dense(256, activation=tf.nn.relu,
+                                kernel_initializer=KERNEL_INITIALIZER)(reshaped)
     
-    power = tf.keras.layers.Dense(int(num_actions/2), activation=tf.nn.relu, kernel_initializer=last_init)(out)
+    # Attention
+    attention_out = tf.keras.layers.MultiHeadAttention(
+        num_heads=3,
+        key_dim=256
+    )(query=embed,value=embed,key=embed)
+    out = tf.keras.layers.Add()([embed,attention_out])
+    out = tf.keras.layers.LayerNormalization()(out)
+
+    out = tf.keras.layers.Dense(num_actions, activation=tf.nn.relu, kernel_initializer=KERNEL_INITIALIZER)(attention_out)
+    out = tf.keras.layers.LayerNormalization()(out)
+
+    out = tf.keras.layers.Flatten()(out)
+
+    power = tf.keras.layers.Dense(num_actions//2, activation=tf.nn.relu, kernel_initializer=last_init)(out)
     power = tf.keras.layers.Softmax(axis=-1)(power)
-    interface = tf.keras.layers.Dense(int(num_actions/2),activation=tf.nn.relu, kernel_initializer=last_init)(out)
+    interface = tf.keras.layers.Dense(num_actions//2,activation=tf.nn.relu, kernel_initializer=last_init)(out)
     interface = tf.keras.layers.Softmax(axis=-1)(interface)
     
     outputs = tf.keras.layers.Concatenate()([power,interface])
@@ -73,11 +79,6 @@ def InitCriticNetwork(num_states=24, num_actions=4, action_high=1):
     state_input = tf.keras.layers.Input(shape=(num_states), dtype=tf.float32)
     state_out = tf.keras.layers.Dense(600, activation=tf.nn.relu,
                                       kernel_initializer=KERNEL_INITIALIZER)(state_input)
-    state_out = tf.keras.layers.Dense(600, activation=tf.nn.relu,
-                                      kernel_initializer=KERNEL_INITIALIZER)(state_out)
-    state_out = tf.keras.layers.BatchNormalization()(state_out)
-    state_out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
-                                      kernel_initializer=KERNEL_INITIALIZER)(state_out)
     state_out = tf.keras.layers.BatchNormalization()(state_out)
     state_out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
                                       kernel_initializer=KERNEL_INITIALIZER)(state_out)
@@ -267,7 +268,7 @@ class Brain:  # pylint: disable=too-many-instance-attributes
         except OSError as err:
             logging.warning("Weights files cannot be found, %s", err)
 
-def update_state(packet_loss_rate, num_received_packet, action):
+def update_state(packet_loss_rate, num_received_packet, action, average_rate):
     r'''
     # state = {state_k} \forall k in K
 
@@ -275,9 +276,10 @@ def update_state(packet_loss_rate, num_received_packet, action):
                     packet_loss_rate_sub, packet_loss_rate_mW, 
                     number_received_packet_sub(t-1), number_received_packet_mW(t-1),
                     power_sub(t-1), power_mW(t-1)
+                    avg_rate_sub(t-1), avg_rate_mW(t-1)
                 }
     '''
-    next_state = np.zeros((env.NUM_OF_DEVICE,6))
+    next_state = np.zeros((env.NUM_OF_DEVICE,8))
     for k in range(env.NUM_OF_DEVICE):
         for i in range(2):
             # if(packet_loss_rate[k,i]<=0.1):
@@ -287,6 +289,8 @@ def update_state(packet_loss_rate, num_received_packet, action):
             next_state[k,i] = packet_loss_rate[k,i]
             next_state[k, i+2] = num_received_packet[k, i]
             next_state[k, i+4] = action[k*2+i]
+        next_state[k, 6] = average_rate[0][k]*1e-7
+        next_state[k, 7] = average_rate[1][k]*1e-10
     return next_state
 
 def compute_number_of_send_packet(action, l_max_estimate, packet_loss_rate, L_k=6, confidence=CONFIDENCE):
@@ -318,13 +322,14 @@ def compute_number_of_send_packet(action, l_max_estimate, packet_loss_rate, L_k=
 
 
 def test_compute_number_send_packet(action,l_max_estimate, L_k=6,confidence=CONFIDENCE):
-    proportion = np.reshape(action,(2,env.NUM_OF_DEVICE,2))[1]
     number_of_send_packet = np.zeros((env.NUM_OF_DEVICE,2))
 
     for k in range(env.NUM_OF_DEVICE):
         power_sub = action[2*k]
         power_mw = action[2*k+1]
-        pro_sub = proportion[k,0]/(proportion[k,0]+proportion[k,1])
+        conf_sub = action[2*env.NUM_OF_DEVICE+2*k]
+        conf_mw = action[2*env.NUM_OF_DEVICE+2*k+1]
+        pro_sub = conf_sub/(conf_mw+conf_sub)
        
         # Use sub6 only
         if(pro_sub>=confidence[1]):
@@ -397,12 +402,12 @@ def compute_rate(device_positions, h_tilde, allocation, action,frame):
         if (sub_channel_index != -1):
             h_sub_k = env.compute_h_sub(
                 device_positions,device_index=k,h_tilde=h_tilde_sub[k, sub_channel_index])
-            p = action[4*k]*env.P_SUM
+            p = action[2*k]*env.P_SUM
             r_sub[k] = env.r_sub(h_sub_k, device_index=k,power=p)
         if (mW_beam_index != -1):
             h_mW_k = env.compute_h_mW(device_positions, device_index=k,
                                       eta=5*np.pi/180, beta=0, h_tilde=h_tilde_mW[k, mW_beam_index],frame=frame)
-            p = action[4*k+1]*env.P_SUM
+            p = action[2*k+1]*env.P_SUM
             r_mW[k] = env.r_mW(h_mW_k, device_index=k,power=p)
 
     r.append(r_sub)
@@ -410,32 +415,44 @@ def compute_rate(device_positions, h_tilde, allocation, action,frame):
     return r
 
 def sigmoid(x):
-    return 1/(1+np.exp(-200*env.NUM_OF_DEVICE*x))
+    # return 1/(1+np.exp(-200*env.NUM_OF_DEVICE*x))
+    return 1/(1+np.exp(-x))
 
 def compute_reward(state, action, num_of_send_packet, num_of_received_packet, old_reward_value,packet_loss_rate, frame_num):
     sum = 0
     risk = 0
+    power_risk = 0
     for k in range(env.NUM_OF_DEVICE):
         state_k = state[k]
         prev_pow_sub, prev_pow_mw = state_k[-2], state_k[-1]
-        cur_pow_sub, cur_pow_mw = action[4*k],action[4*k+1]
+        cur_pow_sub, cur_pow_mw = action[2*k],action[2*k+1]
         satisfaction = [0,0]
         if(state_k[0]<0.1):
             satisfaction[0] = 1
+        else:
+            risk += env.NUM_OF_DEVICE*packet_loss_rate[k,0]
         if(state_k[1]<0.1):
             satisfaction[1] = 1
+        else:
+            risk += env.NUM_OF_DEVICE*packet_loss_rate[k,1]
         sum = sum + (num_of_received_packet[k, 0] + num_of_received_packet[k, 1])/(
             num_of_send_packet[k, 0] + num_of_send_packet[k, 1]) - (1 - satisfaction[0]) - (1-satisfaction[1])
         
-        risk = risk + sigmoid(
+        # risk = risk + sigmoid(
+        #                 -(cur_pow_sub-prev_pow_sub)/(1-prev_pow_sub)*(1-packet_loss_rate[k,0]) + \
+        #                 -(cur_pow_mw-prev_pow_mw)/(1-prev_pow_mw)*(1-packet_loss_rate[k,1])
+        #                 # (cur_pow_sub-prev_pow_sub)/(1-prev_pow_sub)*packet_loss_rate[k,0] + \
+        #                 # (cur_pow_mw-prev_pow_mw)/(1-prev_pow_mw)*packet_loss_rate[k,1]
+        #             )
+        power_risk = power_risk + sigmoid(
                         -(cur_pow_sub-prev_pow_sub)/(1-prev_pow_sub)*(1-packet_loss_rate[k,0]) + \
                         -(cur_pow_mw-prev_pow_mw)/(1-prev_pow_mw)*(1-packet_loss_rate[k,1])
                         # (cur_pow_sub-prev_pow_sub)/(1-prev_pow_sub)*packet_loss_rate[k,0] + \
                         # (cur_pow_mw-prev_pow_mw)/(1-prev_pow_mw)*packet_loss_rate[k,1]
-                    )
+        )
         
     sum = ((frame_num - 1)*old_reward_value + sum)/frame_num
-    return [sum, sum]
+    return [sum, sum-risk-power_risk]
 
 # l_max = r*T/d
 def estimate_l_max(r,state,packet_loss_rate):
