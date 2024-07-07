@@ -1,5 +1,5 @@
 import Model
-import Enviroment as env
+import Environment as env
 import Plot
 import IO
 import numpy as np

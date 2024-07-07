@@ -1,4 +1,4 @@
-import Enviroment as env
+import Environment as env
 
 NUM_STATE = 8*(env.NUM_OF_DEVICE)
 NUM_ACTION = 4*(env.NUM_OF_DEVICE)

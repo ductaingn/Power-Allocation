@@ -1,12 +1,13 @@
 import numpy as np
 from tqdm import tqdm
-import Enviroment as env
+import Environment as env
 import IO
 import DDPGModel
 import Model
 import parameters
 
 def train():
+    # Initialize state, action, reward
     num_state = parameters.NUM_STATE
     num_action = parameters.NUM_ACTION
     model = DDPGModel.Brain(num_state, num_action, 1, 0)
@@ -14,9 +15,11 @@ def train():
     action = model.act(state,_notrandom=False)
     reward, instance_reward = 0,0
 
+    # Load environment
     h_tilde = IO.load('h_tilde')
     device_positions = IO.load('device_positions')
 
+    # Initialize variables
     number_of_send_packet = np.ones((env.NUM_OF_DEVICE,2))
     allocation = DDPGModel.allocate(number_of_send_packet)
     packet_loss_rate = np.zeros((env.NUM_OF_DEVICE,2))
@@ -24,6 +27,7 @@ def train():
     adverage_r = DDPGModel.compute_rate(device_positions,h_tilde[0],allocation,action,1)
     # rate = DDPGModel.compute_rate(device_positions,h_tilde[0],allocation,action,1)
 
+    # Variables containt model's information in every frame
     reward_plot = []
     packet_loss_rate_plot = []
     number_of_received_packet_plot = []
@@ -37,6 +41,8 @@ def train():
 
     EPSILON = 1
     LAMBDA = 0.99
+
+    # Variables for reward based epsilon decay (not in use)
     MIN_VALUE = 0
     REWARD_TARGET = 10
     STEP_TO_TAKE = REWARD_TARGET
@@ -64,9 +70,6 @@ def train():
 
             # Perform action
             l_max_estimate = DDPGModel.estimate_l_max(adverage_r,state,packet_loss_rate)
-            # l_sub_max_estimate = l_max_estimate[0]
-            # l_mW_max_estimate = l_max_estimate[1]
-            # number_of_send_packet = DDPGModel.compute_number_of_send_packet(action, l_max_estimate, packet_loss_rate)
             number_of_send_packet = DDPGModel.test_compute_number_send_packet(action,l_max_estimate)
             number_of_send_packet_plot.append(number_of_send_packet)
             allocation = DDPGModel.allocate(number_of_send_packet)
@@ -93,8 +96,10 @@ def train():
 
             next_state = DDPGModel.update_state(packet_loss_rate,number_of_received_packet,action,adverage_r)
 
+            # Add state, action, reward, next state, done into replay buffer
             model.remember(state.flatten(), instance_reward, next_state.flatten(), 0)
             batch = model.buffer.get_batch()
+            # Update weights
             c_l, a_l = model.learn(batch)
             critic_loss.append(c_l)
             actor_loss.append(a_l)
