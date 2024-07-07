@@ -15,7 +15,7 @@ from common_definitions import (
 from buffer import ReplayBuffer
 from utils import OUActionNoise
 
-import Enviroment as env
+import Environment as env
 
 def InitActorNetwork(num_states=24, num_actions=4, action_high=1):
     """

@@ -1,7 +1,8 @@
 import numpy as np
 import IO
 import matplotlib.pyplot as plt
-import Enviroment as env
+import Environment as env
+import pandas as pd
 
 def plot_packet_loss_rate(device=1):
     # received = IO.load('number_of_received_packet')
@@ -383,3 +384,76 @@ def plot_all_device_packet_loss_rate():
 
     fig.suptitle('Moving avg. Packet loss rate')
     plt.show()
+
+def plot_interface_usage_with_drop(labels=["Sub6GHz", "mmWave"], title="Interface Usage",  H="/", **kwargs):
+    """Given a list of dataframes, with identical columns and index, create a clustered stacked bar plot. 
+labels is a list of the names of the dataframe, used for the legend
+title is a string for the title of the plot 
+
+H is the hatch used for identification of the different dataframe"""
+    devices = [f'Device {i+1}' for i in range(env.NUM_OF_DEVICE)]
+    interface = ['Sub-6GHz','mmWave']
+
+    received = np.array(IO.load('number_of_received_packet'))
+    sent = np.array(IO.load('number_of_sent_packet'))
+
+    drop = np.zeros((env.NUM_OF_DEVICE,2))
+    receive = np.zeros((env.NUM_OF_DEVICE,2))
+
+    for i in range(len(sent)):
+        for k in range(env.NUM_OF_DEVICE):
+            drop[k,0] += sent[i][k][0]-received[i][k][0]
+            drop[k,1] += sent[i][k][1]-received[i][k][1]
+            receive[k,0] += received[i][k][0]
+            receive[k,1] += received[i][k][1]
+
+
+    df_sub = pd.DataFrame(np.array([receive[:,0],drop[:,0]]).transpose(),
+                    index=devices,
+                    columns=['Receive','Drop'])
+    df_mW = pd.DataFrame(np.array([receive[:,1],drop[:,1]]).transpose(),
+                    index=devices,
+                    columns=['Receive','Drop'])
+    
+    dfall=[df_sub,df_mW]
+
+    n_df = len(dfall)
+    n_col = len(dfall[0].columns) 
+    n_ind = len(dfall[0].index)
+    axe = plt.subplot(111)
+
+    c = [['blue','red'],['green','red']]
+    for i,df in enumerate(dfall) : # for each data frame
+        axe = df.plot(kind="bar",
+                      linewidth=0,
+                      stacked=True,
+                      ax=axe,
+                      legend=False,
+                      grid=False,
+                      color = c[i],
+                      **kwargs)  # make bar plots
+
+    h,l = axe.get_legend_handles_labels() # get the handles we want to modify
+    for i in range(0, n_df * n_col, n_col): # len(h) = n_col * n_df
+        for j, pa in enumerate(h[i:i+n_col]):
+            for rect in pa.patches: # for each index
+                rect.set_x(rect.get_x() + 1 / float(n_df + 1) * i / float(n_col))
+                rect.set_hatch(H * int(i / n_col)) #edited part     
+                rect.set_width(1 / float(n_df + 1))
+
+    axe.set_xticks((np.arange(0, 2 * n_ind, 2) + 1 / float(n_df + 1)) / 2.)
+    axe.set_xticklabels(df.index, rotation = 0)
+    axe.set_title(title)
+
+    # Add invisible data to add another legend
+    n=[]        
+    for i in range(n_df):
+        n.append(axe.bar(0, 0, hatch=H * i))
+
+    l1 = axe.legend(h[:n_col], l[:n_col], loc=[1.01, 0.5])
+    if labels is not None:
+        l2 = plt.legend(n, labels, loc=[1.01, 0.1]) 
+    axe.add_artist(l1)
+
+    plt.show()
+    return axe
