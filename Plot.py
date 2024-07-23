@@ -1,21 +1,52 @@
 import numpy as np
 import IO
 import matplotlib.pyplot as plt
-import Enviroment as env
+import Environment as env
+import pandas as pd
 
-def plot_packet_loss_rate(device):
-    plr = IO.load('packet_loss_rate')
-    plrsub=[]
-    plrmw=[]
-    for i in range(len(plr)):
-        plrsub.append(plr[i][device-1,0])
-        plrmw.append(plr[i][device-1,1])
-    plt.plot(plrsub,label='sub')
-    plt.plot(plrmw,label='mw')
-    plt.legend()
+def plot_packet_loss_rate(device=1):
+    # received = IO.load('number_of_received_packet')
+    # sent = IO.load('number_of_sent_packet')
+    # device-=1
+    # received_device_sub, received_device_mW = 0,0
+    # sent_device_sub, sent_device_mW = 0,0
+    # plrsub = []
+    # plrmw = []
+    # for i in range(len(sent)):
+    #     received_device_sub += received[i][device][0]
+    #     received_device_mW += received[i][device][1]
+
+    #     sent_device_sub += sent[i][device][0]
+    #     sent_device_mW += sent[i][device][1]
+        
+    #     plrsub.append(1-received_device_sub/sent_device_sub)
+    #     plrmw.append(1-received_device_mW/sent_device_mW)
+
+    # plt.plot(plrsub,label='sub')
+    # plt.plot(plrmw,label='mw')
+    # plt.legend()
+    # device+=1
+    # plt.title(f'Packet loss rate of device {device}')
+    # plt.show()
+
+    received = IO.load('number_of_received_packet')
+    sent = IO.load('number_of_sent_packet')
+    device-=1
+    received_device = 0
+    sent_device = 0
+    plr = []
+    for i in range(len(sent)):
+        received_device += received[i][device][0] + received[i][device][1]
+
+        sent_device += sent[i][device][0] + sent[i][device][1]
+        
+        plr.append(1-received_device/sent_device)
+
+    plt.plot(plr)
+    device+=1
     plt.title(f'Packet loss rate of device {device}')
     plt.show()
-
+        
 def plot_moving_avg_packet_loss_rate():
     received = IO.load('number_of_received_packet')
     sent = IO.load('number_of_sent_packet')
@@ -32,7 +63,7 @@ def plot_moving_avg_packet_loss_rate():
         p.append(np.mean(plr[0:i]))
     plt.plot(p,label='plr')
     plt.legend()
-    plt.title('Moving average Packet loss rate of all devices-PA')
+    plt.title('Moving average Sum Packet loss rate of all devices')
     plt.show()
 
 def scatter_packet_loss_rate(device='all'):
@@ -65,7 +96,7 @@ def scatter_packet_loss_rate(device='all'):
     plt.show()
 
 def plot_reward():
-    reward = IO.load('reward')
+    reward = IO.load('PA-reward')
     p = []
     for i in range(len(reward)):
         p.append(np.mean(reward[0:i]))
@@ -86,8 +117,8 @@ def plot_position():
         plt.scatter(device_pos[i][0],device_pos[i][1], color = 'b')
         plt.text(device_pos[i][0]-0.4,device_pos[i][1]+0.8,f"D{i+1}",fontsize=12)
         
-    plt.xlim([0,90])
-    plt.ylim([0,90])
+    plt.xlim([-env.width/2,env.width/2])
+    plt.ylim([-env.length/2,env.length/2])
     plt.legend(loc='upper right')
     plt.grid()
     plt.show()
@@ -134,12 +165,12 @@ def scatter_action(device=1):
     plt.show()
 
 def plot_interface_usage():
-    action = IO.load('action')
+    action = IO.load('PA-action')
     usage = np.zeros(shape=(env.NUM_OF_DEVICE,3))
     
     for i in range(len(action)):
         for j in range(env.NUM_OF_DEVICE):
-            usage[j][action[i][j][0]]+=1
+            usage[j][action[i][j]]+=1
     usage = np.divide(usage,len(action)/100)
     usage = usage.transpose()
     fig,ax = plt.subplots(layout='constrained')
@@ -247,15 +278,15 @@ def plot_moving_avg_powerlevel(device=1):
     count_sub = np.zeros(shape=env.A)
     count_mW = np.zeros(shape=env.A)
     power_level = IO.load('power_level')
-    action = IO.load('action')
+    action = IO.load('PA-action')
     pow_sub = []
     avg_sub = []
     pow_mW = []
     avg_mW = []
     for i in range(len(power_level)):
-        if(action[i][device-1][0]==0):
+        if(action[i][device-1]==0):
             pow_sub.append(power_level[i][0][device-1])
-        if(action[i][device-1][0]==1):
+        if(action[i][device-1]==1):
             pow_mW.append(power_level[i][1][device-1])
         else:
             pow_sub.append(power_level[i][0][device-1])
@@ -299,3 +330,130 @@ def bench_mark():
     plt.axis('equal')
     plt.legend(loc='right',labels=labels)
     plt.show()
+
+def plot_power_proportion():
+    action = np.array(IO.load('action'))
+    power = action[:,:env.NUM_OF_DEVICE*2].reshape((len(action),env.NUM_OF_DEVICE,2))
+    fig, ax = plt.subplots(2,5)
+    for i in range(env.NUM_OF_DEVICE):
+        power_device_sub, power_device_mW = power[:,i,0], power[:,i,1]
+        p_sub, p_mw = [power_device_sub[0]],[power_device_mW[0]]
+        for j in range(1,len(power_device_sub)):
+            p_sub.append(1/j*(p_sub[-1]*(j-1)+power_device_sub[j]))
+            p_mw.append(1/j*(p_mw[-1]*(j-1)+power_device_mW[j]))
+
+        ax_col = i%5
+        ax_row = int(i/5)
+        ax[ax_row,ax_col].plot(p_sub,label='Sub6-GHz')
+        ax[ax_row,ax_col].plot(p_mw,label='mmWave')
+        ax[ax_row,ax_col].legend()
+        ax[ax_row,ax_col].set_title(f'Device {i+1}')
+        ax[ax_row,ax_col].set_xlabel('Frame x Epoch')
+        ax[ax_row,ax_col].set_ylabel('Power proportion')
+        ax[ax_row,ax_col].set_ylim([-0.01,1.01])
+
+    fig.suptitle('Power proportion')
+    plt.show()
+
+def plot_all_device_packet_loss_rate():
+    received = IO.load('number_of_received_packet')
+    sent = IO.load('number_of_sent_packet')
+
+    px = 1/plt.rcParams['figure.dpi']
+    fig, ax = plt.subplots(2,5,figsize=(2240*px,1400*px))
+    for k in range(env.NUM_OF_DEVICE):
+        ax_col = k%5
+        ax_row = int(k/5)
+
+        received_device = 0
+        sent_device = 0
+        plr = []
+        for i in range(len(sent)):
+            received_device += received[i][k][0] + received[i][k][1]
+            sent_device += sent[i][k][0] + sent[i][k][1]
+            
+            plr.append(1-received_device/sent_device)
+
+        ax[ax_row,ax_col].plot(plr,label='PLR')
+        ax[ax_row,ax_col].set_xlabel('Frame x Epoch')
+        ax[ax_row,ax_col].set_ylabel('Packet loss rate')
+        ax[ax_row,ax_col].set_title(f'Device {k+1}')
+        ax[ax_row,ax_col].set_ylim([-0.02,1.02])
+        ax[ax_row,ax_col].axhline(y=0.1,color='red',linestyle='--',label='$\\rho_{max}$')
+        ax[ax_row,ax_col].legend()
+
+    fig.suptitle('Moving avg. Packet loss rate')
+    plt.show()
+
+def plot_interface_usage_with_drop(labels=["Sub6GHz", "mmWave"], title="Interface Usage",  H="/", **kwargs):
+    """Given a list of dataframes, with identical columns and index, create a clustered stacked bar plot. 
+labels is a list of the names of the dataframe, used for the legend
+title is a string for the title of the plot 
+
+H is the hatch used for identification of the different dataframe"""
+    devices = [f'Device {i+1}' for i in range(env.NUM_OF_DEVICE)]
+    interface = ['Sub-6GHz','mmWave']
+
+    received = np.array(IO.load('number_of_received_packet'))
+    sent = np.array(IO.load('number_of_sent_packet'))
+
+    drop = np.zeros((env.NUM_OF_DEVICE,2))
+    receive = np.zeros((env.NUM_OF_DEVICE,2))
+
+    for i in range(len(sent)):
+        for k in range(env.NUM_OF_DEVICE):
+            drop[k,0] += sent[i][k][0]-received[i][k][0]
+            drop[k,1] += sent[i][k][1]-received[i][k][1]
+            receive[k,0] += received[i][k][0]
+            receive[k,1] += received[i][k][1]
+
+
+    df_sub = pd.DataFrame(np.array([receive[:,0],drop[:,0]]).transpose(),
+                    index=devices,
+                    columns=['Receive','Drop'])
+    df_mW = pd.DataFrame(np.array([receive[:,1],drop[:,1]]).transpose(),
+                    index=devices,
+                    columns=['Receive','Drop'])
+    
+    dfall=[df_sub,df_mW]
+
+    n_df = len(dfall)
+    n_col = len(dfall[0].columns) 
+    n_ind = len(dfall[0].index)
+    axe = plt.subplot(111)
+
+    c = [['blue','red'],['green','red']]
+    for i,df in enumerate(dfall) : # for each data frame
+        axe = df.plot(kind="bar",
+                      linewidth=0,
+                      stacked=True,
+                      ax=axe,
+                      legend=False,
+                      grid=False,
+                      color = c[i],
+                      **kwargs)  # make bar plots
+
+    h,l = axe.get_legend_handles_labels() # get the handles we want to modify
+    for i in range(0, n_df * n_col, n_col): # len(h) = n_col * n_df
+        for j, pa in enumerate(h[i:i+n_col]):
+            for rect in pa.patches: # for each index
+                rect.set_x(rect.get_x() + 1 / float(n_df + 1) * i / float(n_col))
+                rect.set_hatch(H * int(i / n_col)) #edited part     
+                rect.set_width(1 / float(n_df + 1))
+
+    axe.set_xticks((np.arange(0, 2 * n_ind, 2) + 1 / float(n_df + 1)) / 2.)
+    axe.set_xticklabels(df.index, rotation = 0)
+    axe.set_title(title)
+
+    # Add invisible data to add another legend
+    n=[]        
+    for i in range(n_df):
+        n.append(axe.bar(0, 0, hatch=H * i))
+
+    l1 = axe.legend(h[:n_col], l[:n_col], loc=[1.01, 0.5])
+    if labels is not None:
+        l2 = plt.legend(n, labels, loc=[1.01, 0.1]) 
+    axe.add_artist(l1)
+
+    plt.show()
+    return axe
