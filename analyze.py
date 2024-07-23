@@ -6,12 +6,12 @@ import Environment as env
 import pandas as pd
 
 # Plot epsilon
-epsilon = IO.load('epsilon')
-plt.plot(epsilon)
-plt.xlabel('Frame x Epoch')
-plt.ylabel('Epsilon')
-plt.title('Epsilon')
-plt.show()
+# epsilon = IO.load('epsilon')
+# plt.plot(epsilon)
+# plt.xlabel('Frame x Epoch')
+# plt.ylabel('Epsilon')
+# plt.title('Epsilon')
+# plt.show()
 
 # Plot power sum packet loss rate
 Plot.plot_moving_avg_packet_loss_rate()

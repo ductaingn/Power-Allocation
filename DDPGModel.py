@@ -424,7 +424,7 @@ def compute_reward(state, action, num_of_send_packet, num_of_received_packet, ol
     power_risk = 0
     for k in range(env.NUM_OF_DEVICE):
         state_k = state[k]
-        prev_pow_sub, prev_pow_mw = state_k[-2], state_k[-1]
+        prev_pow_sub, prev_pow_mw = state_k[-4], state_k[-3]
         cur_pow_sub, cur_pow_mw = action[2*k],action[2*k+1]
         satisfaction = [0,0]
         if(state_k[0]<0.1):
