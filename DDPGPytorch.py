@@ -393,23 +393,23 @@ def test_compute_number_send_packet(action,l_max_estimate, L_k=6,confidence=CONF
 
     for k in range(env.NUM_OF_DEVICE):
         power_sub = action[2*k]
-        power_mw = action[2*k+1]
-        conf_sub = action[2*env.NUM_OF_DEVICE+2*k]
-        conf_mw = action[2*env.NUM_OF_DEVICE+2*k+1]
+        power_mw = action[2*k + 1]
+        conf_sub = action[2*env.NUM_OF_DEVICE + 2*k]
+        conf_mw = action[2*env.NUM_OF_DEVICE + 2*k+1]
         pro_sub = conf_sub/(conf_mw+conf_sub)
        
         # Use sub6 only
         if(pro_sub>=confidence[1]):
-            number_of_send_packet[k,0] = max(1,min([l_max_estimate[0,k],np.ceil(pro_sub*L_k),L_k]))
+            number_of_send_packet[k,0] = max(1,min([l_max_estimate[0,k],np.ceil(pro_sub*L_k)]))
             number_of_send_packet[k,1] = 0
 
         elif(confidence[1]>pro_sub>=confidence[0]):
-            number_of_send_packet[k,0] = max(1,min([l_max_estimate[0,k],np.floor(pro_sub*L_k),L_k]))
-            number_of_send_packet[k,1] = max(1,min([l_max_estimate[1,k],np.ceil((1-pro_sub)*L_k),L_k]))
+            number_of_send_packet[k,0] = max(1,min([l_max_estimate[0,k],np.floor(pro_sub*L_k)]))
+            number_of_send_packet[k,1] = max(1,min([l_max_estimate[1,k],np.ceil((1-pro_sub)*(L_k-number_of_send_packet[k,0]))]))
 
         else:
             number_of_send_packet[k,0] = 0
-            number_of_send_packet[k,1] = max(1,min([l_max_estimate[1,k],np.ceil((1-pro_sub)*L_k),L_k]))
+            number_of_send_packet[k,1] = max(1,min([l_max_estimate[1,k],np.ceil((1-pro_sub)*L_k)]))
 
         # Collect power
         if(number_of_send_packet[k,0]==0):
@@ -483,34 +483,33 @@ def compute_rate(device_positions, h_tilde, allocation, action,frame):
 
 def sigmoid(x):
     # return 1/(1+np.exp(-200*env.NUM_OF_DEVICE*x))
-    return 1/(1+np.exp(-x))
+    return 1/(1+np.exp(-env.NUM_OF_DEVICE*x))
 
 def compute_reward(state, action, num_of_send_packet, num_of_received_packet, old_reward_value,packet_loss_rate, frame_num):
     sum = 0
     risk = 0
+    interface_reward = 0
     power_risk = 0
     for k in range(env.NUM_OF_DEVICE):
         state_k = state[k]
         prev_pow_sub, prev_pow_mw = state_k[-4], state_k[-3]
         cur_pow_sub, cur_pow_mw = action[2*k],action[2*k+1]
         satisfaction = [0,0]
-        if(state_k[0]<0.1):
+        if(state_k[0]<env.RHO_MAX):
             satisfaction[0] = 1
+            if num_of_send_packet[k,0]>0:
+                interface_reward += 0.5*(1-packet_loss_rate[k,0])
         else:
             risk += env.NUM_OF_DEVICE*packet_loss_rate[k,0]
-        if(state_k[1]<0.1):
+        if(state_k[1]<env.RHO_MAX):
             satisfaction[1] = 1
+            if num_of_send_packet[k,1]>0:
+                interface_reward += 0.5*(1-packet_loss_rate[k,1])
         else:
             risk += env.NUM_OF_DEVICE*packet_loss_rate[k,1]
         sum = sum + (num_of_received_packet[k, 0] + num_of_received_packet[k, 1])/(
             num_of_send_packet[k, 0] + num_of_send_packet[k, 1]) - (1 - satisfaction[0]) - (1-satisfaction[1])
         
-        # risk = risk + sigmoid(
-        #                 -(cur_pow_sub-prev_pow_sub)/(1-prev_pow_sub)*(1-packet_loss_rate[k,0]) + \
-        #                 -(cur_pow_mw-prev_pow_mw)/(1-prev_pow_mw)*(1-packet_loss_rate[k,1])
-        #                 # (cur_pow_sub-prev_pow_sub)/(1-prev_pow_sub)*packet_loss_rate[k,0] + \
-        #                 # (cur_pow_mw-prev_pow_mw)/(1-prev_pow_mw)*packet_loss_rate[k,1]
-        #             )
         power_risk = power_risk + sigmoid(
                         -(cur_pow_sub-prev_pow_sub)/(1-prev_pow_sub)*(1-packet_loss_rate[k,0]) + \
                         -(cur_pow_mw-prev_pow_mw)/(1-prev_pow_mw)*(1-packet_loss_rate[k,1])
@@ -519,7 +518,7 @@ def compute_reward(state, action, num_of_send_packet, num_of_received_packet, ol
         )
         
     sum = ((frame_num - 1)*old_reward_value + sum)/frame_num
-    return [sum, sum-risk-power_risk]
+    return [sum, sum-risk-power_risk + interface_reward]
 
 # l_max = r*T/d
 def estimate_l_max(r,state,packet_loss_rate):

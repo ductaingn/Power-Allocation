@@ -6,6 +6,22 @@ import Environment as env
 import pandas as pd
 
 if __name__ == "__main__":
+    # Plot reward
+    reward = IO.load('reward')
+    p = [reward[0]]
+    for i in range(1,len(reward)):
+        p.append(1/i*(p[i-1]*(i-1)+reward[i]))
+    fig, ax = plt.subplots(2,1)
+    ax[0].plot(p)
+    ax[0].set_xlabel('Frame x Epoch')
+    ax[0].set_ylabel('Reward')
+    ax[1].set_xlabel('Frame x Epoch')
+    ax[1].set_ylabel('Reward')
+    ax[1].plot(p)
+    ax[1].set_title('Zoom in')
+    ax[1].set_ylim([3.5,4.5])
+    plt.show()
+    
     Plot.plot_sum_rate()
     
     # Plot epsilon
@@ -33,23 +49,6 @@ if __name__ == "__main__":
     ax[0].set_title('Actor loss')
     ax[1].plot(critic_loss)
     ax[1].set_title('Critic loss')
-    plt.show()
-    
-    
-    # Plot reward
-    reward = IO.load('reward')
-    p = [reward[0]]
-    for i in range(1,len(reward)):
-        p.append(1/i*(p[i-1]*(i-1)+reward[i]))
-    fig, ax = plt.subplots(2,1)
-    ax[0].plot(p)
-    ax[0].set_xlabel('Frame x Epoch')
-    ax[0].set_ylabel('Reward')
-    ax[1].set_xlabel('Frame x Epoch')
-    ax[1].set_ylabel('Reward')
-    ax[1].plot(p)
-    ax[1].set_title('Zoom in')
-    ax[1].set_ylim([3.5,4.5])
     plt.show()
     
     # Plot interface usage

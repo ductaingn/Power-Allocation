@@ -21,6 +21,8 @@ SIGMA_SQR = pow(10, -169/10)*1e-3
 # Bandwidth per subchannel W_sub = 100MHz/number of sub channel
 W_SUB = 1e8/NUM_OF_SUB_CHANNEL
 W_MW = 1e9
+# QoS constraint
+RHO_MAX = 0.1
 # Number of levels of quantitized Transmit Power
 A = NUM_OF_SUB_CHANNEL
 # Emitting power constraints 
