@@ -124,43 +124,58 @@ class CriticNetwork(nn.Module):
     '''
     def __init__(self, num_states=24, num_actions=4, *args, **kwargs) -> None:
         super(CriticNetwork, self).__init__(*args, **kwargs)
+        self.num_states = num_states
+        self.num_actions = num_actions
 
-        # State pathway
-        self.state_embeding = nn.Linear(num_states, 600)
-        self.state_batchnorm = nn.BatchNorm1d(600)
-        self.state_out = nn.Linear(600, 300)
+        self.state_reshape_dim = num_states // env.NUM_OF_DEVICE
+        self.action_reshape_dim = num_actions // env.NUM_OF_DEVICE
 
-        # Action pathway
-        self.action_embeding = nn.Linear(num_actions, 300)
-        self.action_batchnorm = nn.BatchNorm1d(300)
+        # Layers
+        self.state_in = nn.Linear(self.state_reshape_dim, 128)
+        self.action_in = nn.Linear(self.action_reshape_dim, 128)
 
-        # Combine
-        self.combine_fc = nn.Linear(300, 150)
-        self.combine_batchnorm = nn.BatchNorm1d(150)
-        self.value_out = nn.Linear(150, 0)
+        self.attention = MultiheadAttention(dmodel=256, dk=256, dv=256, num_heads=3)
+        self.compress = nn.Linear(256*env.NUM_OF_DEVICE, num_actions)
+        self.power_fc = nn.Linear(num_actions, num_actions//2)
+        self.interface_fc = nn.Linear(num_actions, num_actions//2)
+
+        self.value_out = nn.Linear(num_actions, 1)
+
+        # Add LayerNorm layers
+        self.layer_norm1 = nn.LayerNorm(256)
+        self.layer_norm2 = nn.LayerNorm(256)
 
     def forward(self, state:torch.Tensor, action:torch.Tensor)->torch.Tensor:
-        state = self.state_embeding(state)
-        state = torch.relu(state)
-        
-        if state.shape[0]>1:
-            state = self.state_batchnorm(state)
-        state = self.state_out(state)
+        # State, action in
+        state = state.view(-1, env.NUM_OF_DEVICE, self.state_reshape_dim)
+        state = self.state_in(state)
+        action = action.view(-1, env.NUM_OF_DEVICE, self.action_reshape_dim)
+        action = self.action_in(action)
+        x = torch.cat([state, action], dim=-1)
+        x = torch.relu(x)
 
-        action = self.action_embeding(action)
-        action = torch.relu(action)
-        if action.shape[0]>1:
-            action = self.action_batchnorm(action)
+        # Multi-head attention 
+        attention_out = self.attention(x, x, x)
+        attention_out = self.layer_norm1(attention_out)
 
-        combined = state + action
-        # combined = torch.batch_norm(combined)
+        # Add attention_out with embed
+        x = x + attention_out
+        x = self.layer_norm2(x)
 
-        combined = self.combine_fc(combined)
-        combined = torch.relu(combined)
-        if combined.shape[0]>1:
-            combined = self.combine_batchnorm(combined)
-        
-        out = self.value_out(combined)
+        # Output layers
+        x = x.flatten(start_dim=1)
+        x = self.compress(x)
+        x = torch.relu(x)
+
+        power = self.power_fc(x)
+        power = torch.relu(power)
+        # power = self.softmax(power)
+        interface = self.interface_fc(x)
+        interface = torch.relu(interface)
+        # interface = self.softmax(interface)
+
+        out = torch.cat([power, interface], dim=-1)
+        out = self.value_out(out)
         
         return out
     
@@ -177,8 +192,8 @@ class DDPGModel(nn.Module):
         self.critic_target = CriticNetwork(num_states, num_actions).to(self.device)
 
         self.noise = OUActionNoise(mean=np.zeros(1), std_deviation=float(std_dev) * np.ones(1))
-        self.actor_optimizer = AdamW(self.actor_net.parameters(), lr=1e-4)
-        self.critic_optimizer = AdamW(self.critic_net.parameters(), lr=1e-3)
+        self.actor_optimizer = AdamW(self.actor_net.parameters(), lr=ACTOR_LR)
+        self.critic_optimizer = AdamW(self.critic_net.parameters(), lr=CRITIC_LR)
 
         self.buffer = ReplayBuffer(BUFFER_SIZE, BATCH_SIZE)
         self.gamma = gamma
@@ -300,7 +315,7 @@ class DDPGModel(nn.Module):
             ddpg_model (DDPGModel): The DDPG model instance where the weights will be loaded.
             file_path (str): Path from which the model will be loaded.
         """
-        checkpoint = torch.load(file_path + 'checkpoint.pt', map_location=self.device)
+        checkpoint = torch.load(file_path + 'checkpoint.pt', map_location=self.device, weights_only=False)
 
         self.actor_net.load_state_dict(checkpoint['actor_net'])
         self.critic_net.load_state_dict(checkpoint['critic_net'])
