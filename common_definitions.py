@@ -6,7 +6,7 @@ from keras.initializers import glorot_normal  # pylint: disable=no-name-in-modul
 
 # brain parameters
 GAMMA = 0.9  # for the temporal difference
-RHO = 0.001  # to update the target networks
+RHO = TAU = 0.001  # to update the target networks
 KERNEL_INITIALIZER = glorot_normal()
 
 # buffer params
@@ -15,8 +15,8 @@ BUFFER_UNBALANCE_GAP = 0.5
 
 # training parameters
 STD_DEV = 0.3
-BATCH_SIZE = 200
-BUFFER_SIZE = 1e6
+BATCH_SIZE = 256
+BUFFER_SIZE = 1e5
 TOTAL_EPISODES = 10000
 CRITIC_LR = 1e-3
 ACTOR_LR = 1e-4
