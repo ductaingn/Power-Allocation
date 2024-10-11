@@ -2,12 +2,12 @@
 Common definitions of variables that can be used across files
 """
 
-# from keras.initializers import glorot_normal  # pylint: disable=no-name-in-module
+from keras.initializers import glorot_normal  # pylint: disable=no-name-in-module
 
 # brain parameters
 GAMMA = 0.9  # for the temporal difference
 RHO = TAU = 0.001  # to update the target networks
-# KERNEL_INITIALIZER = glorot_normal()
+KERNEL_INITIALIZER = glorot_normal()
 
 # buffer params
 UNBALANCE_P = 0.8  # newer entries are prioritized

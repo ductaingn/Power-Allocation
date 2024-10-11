@@ -73,33 +73,40 @@ def InitCriticNetwork(num_states=24, num_actions=4, action_high=1):
     Returns:
         the Keras Model
     """
-    last_init = tf.random_normal_initializer(stddev=0.00005)
+    # Initialize weights between -3e-3 and 3-e3
+    last_init = tf.random_normal_initializer(stddev=0.0005)
 
-    # State as input
-    state_input = tf.keras.layers.Input(shape=(num_states,), dtype=tf.float32)
-    state_out = tf.keras.layers.Dense(600, activation=tf.nn.relu,
-                                      kernel_initializer=KERNEL_INITIALIZER)(state_input)
-    state_out = tf.keras.layers.BatchNormalization()(state_out)
-    state_out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
-                                      kernel_initializer=KERNEL_INITIALIZER)(state_out)
-    # Action as input
-    action_input = tf.keras.layers.Input(shape=(num_actions,), dtype=tf.float32)
-    action_out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
-                                       kernel_initializer=KERNEL_INITIALIZER)(
-        action_input)
+    state_inputs = tf.keras.layers.Input(shape=(num_states,), dtype=tf.float32)
+    action_inputs = tf.keras.layers.Input(shape=(num_actions,), dtype=tf.float32)
+    state_reshaped = tf.keras.layers.Reshape((env.NUM_OF_DEVICE,num_states//env.NUM_OF_DEVICE))(state_inputs)
+    action_reshaped = tf.keras.layers.Reshape((env.NUM_OF_DEVICE,num_actions//env.NUM_OF_DEVICE))(action_inputs)
+    state_embed = tf.keras.layers.Dense(128, activation=tf.nn.relu,
+                                kernel_initializer=KERNEL_INITIALIZER)(state_reshaped)
+    action_embed = tf.keras.layers.Dense(128, activation=tf.nn.relu,
+                            kernel_initializer=KERNEL_INITIALIZER)(action_reshaped)
+    embed = tf.keras.layers.Concatenate()([state_embed, action_embed])
+    # Attention
+    attention_out = tf.keras.layers.MultiHeadAttention(
+        num_heads=3,
+        key_dim=256
+    )(query=embed,value=embed,key=embed)
+    out = tf.keras.layers.Add()([embed,attention_out])
+    out = tf.keras.layers.LayerNormalization()(out)
 
-    # Both are passed through seperate layer before concatenating
-    added = tf.keras.layers.Add()([state_out, action_out])
+    out = tf.keras.layers.Dense(num_actions, activation=tf.nn.relu, kernel_initializer=KERNEL_INITIALIZER)(attention_out)
+    out = tf.keras.layers.LayerNormalization()(out)
 
-    added = tf.keras.layers.BatchNormalization()(added)
-    outs = tf.keras.layers.Dense(150, activation=tf.nn.relu,
-                                 kernel_initializer=KERNEL_INITIALIZER)(added)
-    outs = tf.keras.layers.BatchNormalization()(outs)
-    outputs = tf.keras.layers.Dense(1, kernel_initializer=last_init)(outs)
+    out = tf.keras.layers.Flatten()(out)
 
-    # Outputs single value for give state-action
-    model = tf.keras.Model([state_input, action_input], outputs)
+    power = tf.keras.layers.Dense(num_actions//2, activation=tf.nn.relu, kernel_initializer=last_init)(out)
+    interface = tf.keras.layers.Dense(num_actions//2,activation=tf.nn.relu, kernel_initializer=last_init)(out)
+    
+    outputs = tf.keras.layers.Concatenate()([power,interface])
 
+    outputs = tf.keras.layers.Dense(1, kernel_initializer=last_init)(outputs)
+
+    model = tf.keras.Model([state_inputs, action_inputs], outputs)
+    
     return model
 
 

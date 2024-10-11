@@ -184,5 +184,5 @@ def test():
     IO.save(action_plot,'action')
 
 if __name__=="__main__":
-    # test()
-    train()
+    test()
+    # train()
