@@ -91,22 +91,24 @@ def InitCriticNetwork(num_states=24, num_actions=4, action_high=1):
         key_dim=256
     )(query=embed,value=embed,key=embed)
     out = tf.keras.layers.Add()([embed,attention_out])
-    out = tf.keras.layers.LayerNormalization()(out)
+    out = tf.keras.layers.BatchNormalization()(out)
 
-    out = tf.keras.layers.Dense(num_actions, activation=tf.nn.relu, kernel_initializer=KERNEL_INITIALIZER)(attention_out)
-    out = tf.keras.layers.LayerNormalization()(out)
+    out = tf.keras.layers.Dense(num_actions, activation=tf.nn.relu, kernel_initializer=KERNEL_INITIALIZER)(out)
+    out = tf.keras.layers.BatchNormalization()(out)
 
     out = tf.keras.layers.Flatten()(out)
 
     power = tf.keras.layers.Dense(num_actions//2, activation=tf.nn.relu, kernel_initializer=last_init)(out)
+    power = tf.keras.layers.Softmax(axis=-1)(power)
     interface = tf.keras.layers.Dense(num_actions//2,activation=tf.nn.relu, kernel_initializer=last_init)(out)
+    interface = tf.keras.layers.Softmax(axis=-1)(interface)
     
     outputs = tf.keras.layers.Concatenate()([power,interface])
-
+    outputs = tf.keras.layers.BatchNormalization()(outputs)
     outputs = tf.keras.layers.Dense(1, kernel_initializer=last_init)(outputs)
 
     model = tf.keras.Model([state_inputs, action_inputs], outputs)
-    
+
     return model
 
 
@@ -422,8 +424,8 @@ def compute_rate(device_positions, h_tilde, allocation, action,frame):
     return r
 
 def sigmoid(x):
-    # return 1/(1+np.exp(-200*env.NUM_OF_DEVICE*x))
-    return 1/(1+np.exp(-x))
+    return 1/(1+np.exp(-200*env.NUM_OF_DEVICE*x))
+    # return 1/(1+np.exp(-x))
 
 def compute_reward(state, action, num_of_send_packet, num_of_received_packet, old_reward_value,packet_loss_rate, frame_num):
     sum = 0
