@@ -249,15 +249,16 @@ class DDPGModel(nn.Module):
 
     def update_params(self, state:torch.Tensor, action:torch.Tensor, reward:torch.Tensor, sn:torch.Tensor, d:torch.Tensor):
         # with torch.no_grad():
+        self.critic_optimizer.zero_grad()
+        self.actor_optimizer.zero_grad()
+        
         target_q = reward + self.gamma*(1-d)*self.critic_target(sn, self.actor_target(sn))
 
         critic_loss = F.mse_loss(self.critic_net(state, action), target_q)
         
-        self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
 
-        self.actor_optimizer.zero_grad()
         actor_loss = (-self.critic_net(state, self.actor_net(state))).mean()
         actor_loss.backward()
         self.actor_optimizer.step()

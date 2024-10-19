@@ -424,7 +424,7 @@ def compute_rate(device_positions, h_tilde, allocation, action,frame):
     return r
 
 def sigmoid(x):
-    return 1/(1+np.exp(-200*env.NUM_OF_DEVICE*x))
+    return 1/(1+np.exp(-2*env.NUM_OF_DEVICE*x))
     # return 1/(1+np.exp(-x))
 
 def compute_reward(state, action, num_of_send_packet, num_of_received_packet, old_reward_value,packet_loss_rate, frame_num):
@@ -464,9 +464,9 @@ def compute_reward(state, action, num_of_send_packet, num_of_received_packet, ol
     return [sum, sum-risk-power_risk]
 
 # l_max = r*T/d
-def estimate_l_max(r,state,packet_loss_rate):
+def estimate_l_max(r,state:np.ndarray, packet_loss_rate:np.ndarray):
     l = np.multiply(r, env.T/env.D)
-    qos_violated = np.ones(shape=(env.NUM_OF_DEVICE,2)) - state[:,0:2]
-    packet_successful_rate = np.ones(shape=packet_loss_rate.shape)-packet_loss_rate
-    res = np.floor(l*packet_successful_rate.transpose()*qos_violated.transpose())
+    qos_violated = packet_loss_rate - np.full(packet_loss_rate.shape,env.RHO_MAX)
+    packet_successful_rate = np.ones(shape=packet_loss_rate.shape) - packet_loss_rate
+    res = np.floor(l*(packet_successful_rate.transpose() - qos_violated.transpose()))
     return res
