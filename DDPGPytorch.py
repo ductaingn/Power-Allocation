@@ -144,6 +144,8 @@ class CriticNetwork(nn.Module):
         # Add LayerNorm layers
         self.layer_norm1 = nn.LayerNorm(256)
         self.layer_norm2 = nn.LayerNorm(256)
+        self.batch_norm1 = nn.BatchNorm1d(256)
+        self.batch_norm2 = nn.BatchNorm1d(self.num_actions)
 
     def forward(self, state:torch.Tensor, action:torch.Tensor)->torch.Tensor:
         # State, action in
@@ -156,16 +158,27 @@ class CriticNetwork(nn.Module):
 
         # Multi-head attention 
         attention_out = self.attention(x, x, x)
-        attention_out = self.layer_norm1(attention_out)
 
         # Add attention_out with embed
         x = x + attention_out
-        x = self.layer_norm2(x)
+
+        if x.shape[0]>1:
+            # Transpose x to have shape (batch_size, embed_dim, seq_length)
+            x = x.transpose(1, 2)
+
+            # Apply batch normalization
+            x = self.batch_norm1(x)
+
+            # Transpose back to original shape (batch_size, seq_length, embed_dim)
+            x = x.transpose(1, 2)
 
         # Output layers
         x = x.flatten(start_dim=1)
         x = self.compress(x)
         x = torch.relu(x)
+        
+        if x.shape[0]>1:
+            x = self.batch_norm2(x)
 
         power = self.power_fc(x)
         power = torch.relu(power)
@@ -522,9 +535,9 @@ def compute_reward(state, action, num_of_send_packet, num_of_received_packet, ol
     return [sum, sum-risk-power_risk + interface_reward]
 
 # l_max = r*T/d
-def estimate_l_max(r,state,packet_loss_rate):
+def estimate_l_max(r,state:np.ndarray, packet_loss_rate:np.ndarray):
     l = np.multiply(r, env.T/env.D)
-    qos_violated = np.ones(shape=(env.NUM_OF_DEVICE,2)) - state[:,0:2]
-    packet_successful_rate = np.ones(shape=packet_loss_rate.shape)-packet_loss_rate
-    res = np.floor(l*packet_successful_rate.transpose()*qos_violated.transpose())
+    qos_violated = packet_loss_rate - np.full(packet_loss_rate.shape, env.RHO_MAX)
+    packet_successful_rate = np.ones(shape=packet_loss_rate.shape) - packet_loss_rate
+    res = np.floor(l*(packet_successful_rate.transpose() - qos_violated.transpose()))
     return res
