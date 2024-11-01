@@ -76,14 +76,14 @@ def InitCriticNetwork(num_states=24, num_actions=4, action_high=1):
     last_init = tf.random_normal_initializer(stddev=0.00005)
 
     # State as input
-    state_input = tf.keras.layers.Input(shape=(num_states), dtype=tf.float32)
+    state_input = tf.keras.layers.Input(shape=(num_states,), dtype=tf.float32)
     state_out = tf.keras.layers.Dense(600, activation=tf.nn.relu,
                                       kernel_initializer=KERNEL_INITIALIZER)(state_input)
     state_out = tf.keras.layers.BatchNormalization()(state_out)
     state_out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
                                       kernel_initializer=KERNEL_INITIALIZER)(state_out)
     # Action as input
-    action_input = tf.keras.layers.Input(shape=(num_actions), dtype=tf.float32)
+    action_input = tf.keras.layers.Input(shape=(num_actions,), dtype=tf.float32)
     action_out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
                                        kernel_initializer=KERNEL_INITIALIZER)(
         action_input)
