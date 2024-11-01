@@ -19,6 +19,7 @@ Plot.plot_moving_avg_packet_loss_rate()
 Plot.plot_power_proportion()
 # Plot packet loss rate of each device
 Plot.plot_all_device_packet_loss_rate()
+Plot.plot_sum_rate()
 
 # Plot model's losses
 actor_loss = IO.load('actor_loss')
