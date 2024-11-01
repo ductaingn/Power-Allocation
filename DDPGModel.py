@@ -76,7 +76,7 @@ def InitCriticNetwork(num_states=24, num_actions=4, action_high=1):
     last_init = tf.random_normal_initializer(stddev=0.00005)
 
     # State as input
-    state_input = tf.keras.layers.Input(shape=(num_states,), dtype=tf.float32)
+    state_input = tf.keras.layers.Input(shape=(num_states, ), dtype=tf.float32)
     state_out = tf.keras.layers.Dense(600, activation=tf.nn.relu,
                                       kernel_initializer=KERNEL_INITIALIZER)(state_input)
     state_out = tf.keras.layers.BatchNormalization()(state_out)
@@ -251,10 +251,10 @@ class Brain:  # pylint: disable=too-many-instance-attributes
         if not os.path.exists(parent_dir):
             os.makedirs(parent_dir)
         # Save the weights
-        self.actor_network.save_weights(path + "an.h5")
-        self.critic_network.save_weights(path + "cn.h5")
-        self.critic_target.save_weights(path + "ct.h5")
-        self.actor_target.save_weights(path + "at.h5")
+        self.actor_network.save(path + "an.h5")
+        self.critic_network.save(path + "cn.h5")
+        self.critic_target.save(path + "ct.h5")
+        self.actor_target.save(path + "at.h5")
 
     def load_weights(self, path):
         """
