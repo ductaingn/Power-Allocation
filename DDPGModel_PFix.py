@@ -202,7 +202,14 @@ class Brain:  # pylint: disable=too-many-instance-attributes
             the resulting action
         """
         if _notrandom:
-            self.cur_action = self.actor_network(state)[0].numpy()
+            if noise:
+                cur_action = self.actor_network(state)[0].numpy() + self.noise()
+                cur_action[:self.num_actions//2] = tf.nn.softmax(cur_action[:self.num_actions//2])
+                cur_action[self.num_actions//2:] = tf.nn.softmax(cur_action[self.num_actions//2:])
+                self.cur_action = cur_action
+            else:
+                self.cur_action = self.actor_network(state)[0].numpy()
+
         else:
             def soft_max(x):
                 return np.exp(x)/np.sum(np.exp(x),axis=0)

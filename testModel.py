@@ -40,7 +40,7 @@ def train():
     actor_loss = []
 
     EPSILON = 1
-    LAMBDA = 0.99
+    LAMBDA = 0.995
 
     # Variables for reward based epsilon decay (not in use)
     MIN_VALUE = 0
@@ -63,10 +63,10 @@ def train():
         for frame in range(1,parameters.EPISODE_LENGTH):
             if(p[frame]>=EPSILON):
                 # Greedy
-                action = model.act(np.expand_dims(state.flatten(),axis=0),_notrandom=True)
+                action = model.act(np.expand_dims(state.flatten(),axis=0),_notrandom=True, noise=True)
             else:
                 # Random
-                action = model.act(np.expand_dims(state.flatten(),axis=0),_notrandom=False)
+                action = model.act(np.expand_dims(state.flatten(),axis=0),_notrandom=False, noise=True)
 
             # Perform action
             l_max_estimate = DDPGModel.estimate_l_max(adverage_r,state,packet_loss_rate)
@@ -143,8 +143,8 @@ def test():
     action_plot = []
 
     model.load_weights('./DDPG_weights/')
-    for frame in tqdm(range(251,10000)):
-        action = model.act(np.expand_dims(state.flatten(),axis=0),_notrandom=True)
+    for frame in tqdm(range(parameters.EPISODE_LENGTH+1,env.NUM_OF_FRAME)):
+        action = model.act(np.expand_dims(state.flatten(),axis=0),_notrandom=True, noise=True)
 
         l_max_estimate = DDPGModel.estimate_l_max(adverage_r,state,packet_loss_rate)
         number_of_send_packet = DDPGModel.test_compute_number_send_packet(action,l_max_estimate)
