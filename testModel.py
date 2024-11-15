@@ -5,7 +5,7 @@ import IO
 import DDPGModel
 import Model
 import parameters
-
+from datetime import datetime
 def train():
     # Initialize state, action, reward
     num_state = parameters.NUM_STATE
