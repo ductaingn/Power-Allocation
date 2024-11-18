@@ -6,7 +6,6 @@ import os
 
 import numpy as np
 import tensorflow as tf
-
 from common_definitions import (
     KERNEL_INITIALIZER, GAMMA, RHO,
     STD_DEV, BUFFER_SIZE, BATCH_SIZE,
@@ -14,10 +13,11 @@ from common_definitions import (
 )
 from buffer import ReplayBuffer
 from utils import OUActionNoise
+import keras
 
 import Environment as env
 
-def InitActorNetwork(num_states=24, num_actions=4, action_high=1):
+def InitActorNetwork(num_states=24, num_actions=4, action_high=1)->keras.Model:
     """
     Get Actor Network with the given parameters.
 
@@ -32,36 +32,36 @@ def InitActorNetwork(num_states=24, num_actions=4, action_high=1):
     # Initialize weights between -3e-3 and 3-e3
     last_init = tf.random_normal_initializer(stddev=0.0005)
 
-    inputs = tf.keras.layers.Input(shape=(num_states,), dtype=tf.float32)
-    reshaped = tf.keras.layers.Reshape((env.NUM_OF_DEVICE,num_states//env.NUM_OF_DEVICE))(inputs)
-    embed = tf.keras.layers.Dense(256, activation=tf.nn.relu,
+    inputs = keras.layers.Input(shape=(num_states,), dtype=tf.float32)
+    reshaped = keras.layers.Reshape((env.NUM_OF_DEVICE,num_states//env.NUM_OF_DEVICE))(inputs)
+    embed = keras.layers.Dense(256, activation=tf.nn.relu,
                                 kernel_initializer=KERNEL_INITIALIZER)(reshaped)
     
     # Attention
-    attention_out = tf.keras.layers.MultiHeadAttention(
+    attention_out = keras.layers.MultiHeadAttention(
         num_heads=3,
         key_dim=256
     )(query=embed,value=embed,key=embed)
-    out = tf.keras.layers.Add()([embed,attention_out])
-    out = tf.keras.layers.LayerNormalization()(out)
+    out = keras.layers.Add()([embed,attention_out])
+    out = keras.layers.LayerNormalization()(out)
 
-    out = tf.keras.layers.Dense(num_actions, activation=tf.nn.relu, kernel_initializer=KERNEL_INITIALIZER)(attention_out)
-    out = tf.keras.layers.LayerNormalization()(out)
+    out = keras.layers.Dense(num_actions, activation=tf.nn.relu, kernel_initializer=KERNEL_INITIALIZER)(attention_out)
+    out = keras.layers.LayerNormalization()(out)
 
-    out = tf.keras.layers.Flatten()(out)
+    out = keras.layers.Flatten()(out)
 
-    power = tf.keras.layers.Dense(num_actions//2, activation=tf.nn.relu, kernel_initializer=last_init)(out)
-    power = tf.keras.layers.Softmax(axis=-1)(power)
-    interface = tf.keras.layers.Dense(num_actions//2,activation=tf.nn.relu, kernel_initializer=last_init)(out)
-    interface = tf.keras.layers.Softmax(axis=-1)(interface)
+    power = keras.layers.Dense(num_actions//2, activation=tf.nn.relu, kernel_initializer=last_init)(out)
+    power = keras.layers.Softmax(axis=-1)(power)
+    interface = keras.layers.Dense(num_actions//2,activation=tf.nn.relu, kernel_initializer=last_init)(out)
+    interface = keras.layers.Softmax(axis=-1)(interface)
     
-    outputs = tf.keras.layers.Concatenate()([power,interface])
+    outputs = keras.layers.Concatenate()([power,interface])
 
-    model = tf.keras.Model(inputs, outputs)
+    model = keras.Model(inputs, outputs)
     return model
 
 
-def InitCriticNetwork(num_states=24, num_actions=4, action_high=1):
+def InitCriticNetwork(num_states=24, num_actions=4, action_high=1)->keras.Model:
     """
     Get Critic Network with the given parameters.
 
@@ -76,29 +76,29 @@ def InitCriticNetwork(num_states=24, num_actions=4, action_high=1):
     last_init = tf.random_normal_initializer(stddev=0.00005)
 
     # State as input
-    state_input = tf.keras.layers.Input(shape=(num_states, ), dtype=tf.float32)
-    state_out = tf.keras.layers.Dense(600, activation=tf.nn.relu,
+    state_input = keras.layers.Input(shape=(num_states, ), dtype=tf.float32)
+    state_out = keras.layers.Dense(600, activation=tf.nn.relu,
                                       kernel_initializer=KERNEL_INITIALIZER)(state_input)
-    state_out = tf.keras.layers.BatchNormalization()(state_out)
-    state_out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
+    state_out = keras.layers.BatchNormalization()(state_out)
+    state_out = keras.layers.Dense(300, activation=tf.nn.relu,
                                       kernel_initializer=KERNEL_INITIALIZER)(state_out)
     # Action as input
-    action_input = tf.keras.layers.Input(shape=(num_actions,), dtype=tf.float32)
-    action_out = tf.keras.layers.Dense(300, activation=tf.nn.relu,
+    action_input = keras.layers.Input(shape=(num_actions,), dtype=tf.float32)
+    action_out = keras.layers.Dense(300, activation=tf.nn.relu,
                                        kernel_initializer=KERNEL_INITIALIZER)(
         action_input)
 
     # Both are passed through seperate layer before concatenating
-    added = tf.keras.layers.Add()([state_out, action_out])
+    added = keras.layers.Add()([state_out, action_out])
 
-    added = tf.keras.layers.BatchNormalization()(added)
-    outs = tf.keras.layers.Dense(150, activation=tf.nn.relu,
+    added = keras.layers.BatchNormalization()(added)
+    outs = keras.layers.Dense(150, activation=tf.nn.relu,
                                  kernel_initializer=KERNEL_INITIALIZER)(added)
-    outs = tf.keras.layers.BatchNormalization()(outs)
-    outputs = tf.keras.layers.Dense(1, kernel_initializer=last_init)(outs)
+    outs = keras.layers.BatchNormalization()(outs)
+    outputs = keras.layers.Dense(1, kernel_initializer=last_init)(outs)
 
     # Outputs single value for give state-action
-    model = tf.keras.Model([state_input, action_input], outputs)
+    model = keras.Model([state_input, action_input], outputs)
 
     return model
 
@@ -132,8 +132,8 @@ class Brain:  # pylint: disable=too-many-instance-attributes
         self.noise = OUActionNoise(mean=np.zeros(1), std_deviation=float(std_dev) * np.ones(1))
 
         # optimizers
-        self.critic_optimizer = tf.keras.optimizers.Adam(CRITIC_LR, amsgrad=True)
-        self.actor_optimizer = tf.keras.optimizers.Adam(ACTOR_LR, amsgrad=True)
+        self.critic_optimizer = keras.optimizers.Adam(CRITIC_LR, amsgrad=True)
+        self.actor_optimizer = keras.optimizers.Adam(ACTOR_LR, amsgrad=True)
 
         # temporary variable for side effects
         self.cur_action = None
