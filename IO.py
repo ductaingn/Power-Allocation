@@ -5,14 +5,14 @@ import matplotlib.pyplot as plt
 import pickle
 import yaml
 
-def save(data,file_name):
-    name = './result/'+file_name+'.pickle'
+def save(data,file_path):
+    name = file_path
     file = open(name,'wb')
     pickle.dump(data,file)
-    print(f"Saved {file_name}!")
+    print(f"Saved {file_path}!")
             
-def load(file_name):
-    name = './result/'+file_name+'.pickle'
+def load(file_path):
+    name = file_path
     file = open(name,'rb')
     res = pickle.load(file)
     return res
