@@ -428,7 +428,7 @@ def compute_reward(state, action, num_of_send_packet, num_of_received_packet, ol
             risk += env.NUM_OF_DEVICE*packet_loss_rate[k,0]
         if(state_k[1]<0.1):
             satisfaction[1] = 1
-        else:trainPAtrainPA
+        else:
             risk += env.NUM_OF_DEVICE*packet_loss_rate[k,1]
         sum = sum + (num_of_received_packet[k, 0] + num_of_received_packet[k, 1])/(
             num_of_send_packet[k, 0] + num_of_send_packet[k, 1]) - (1 - satisfaction[0]) - (1-satisfaction[1])
