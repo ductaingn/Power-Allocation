@@ -250,7 +250,7 @@ class Brain:  # pylint: disable=too-many-instance-attributes
 
         return c_l, a_l
 
-    def save_weights(self, path):
+    def save_weights(self, path, iteration_count):
         """
         Save weights to `path`
         """
@@ -258,20 +258,20 @@ class Brain:  # pylint: disable=too-many-instance-attributes
         if not os.path.exists(parent_dir):
             os.makedirs(parent_dir)
         # Save the weights
-        self.actor_network.save(path + "an.h5")
-        self.critic_network.save(path + "cn.h5")
-        self.critic_target.save(path + "ct.h5")
-        self.actor_target.save(path + "at.h5")
+        self.actor_network.save(path + f"an_{iteration_count}.keras")
+        self.critic_network.save(path + f"cn_{iteration_count}.keras")
+        self.critic_target.save(path + f"ct_{iteration_count}.keras")
+        self.actor_target.save(path + f"at_{iteration_count}.keras")
 
-    def load_weights(self, path):
+    def load_weights(self, path, iteration_count):
         """
         Load weights from path
         """
         try:
-            self.actor_network.load_weights(path + "an.h5")
-            self.critic_network.load_weights(path + "cn.h5")
-            self.critic_target.load_weights(path + "ct.h5")
-            self.actor_target.load_weights(path + "at.h5")
+            self.actor_network.load_weights(path + f"an_{iteration_count}.h5")
+            self.critic_network.load_weights(path + f"cn_{iteration_count}.h5")
+            self.critic_target.load_weights(path + f"ct_{iteration_count}.h5")
+            self.actor_target.load_weights(path + f"at_{iteration_count}.h5")
         except OSError as err:
             logging.warning("Weights files cannot be found, %s", err)
 
@@ -423,7 +423,7 @@ def compute_rate(device_positions, h_tilde, allocation, action,frame):
 
 def sigmoid(x):
     # return 1/(1+np.exp(-200*env.NUM_OF_DEVICE*x))
-    return 1/(1+np.exp(-x))
+    return 1 / (1 + np.exp(-np.clip(x, -500, 500)))
 
 def compute_reward(state, action, num_of_send_packet, num_of_received_packet, old_reward_value,packet_loss_rate, frame_num):
     sum = 0

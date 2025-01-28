@@ -47,9 +47,7 @@ def plot_packet_loss_rate(device=1):
     plt.title(f'Packet loss rate of device {device}')
     plt.show()
         
-def plot_moving_avg_packet_loss_rate():
-    received = IO.load('number_of_received_packet')
-    sent = IO.load('number_of_sent_packet')
+def plot_moving_avg_packet_loss_rate(received, sent):
     plr = []
     for i in range(len(sent)):
         r = 0
@@ -66,10 +64,7 @@ def plot_moving_avg_packet_loss_rate():
     plt.title('Moving average Sum Packet loss rate of all devices')
     plt.show()
 
-def scatter_packet_loss_rate(device='all'):
-    received = IO.load('number_of_received_packet')
-    sent = IO.load('number_of_sent_packet')
-
+def scatter_packet_loss_rate(received, sent, device='all'):
     x = np.arange(len(received))
 
     if(device!= 'all'):
@@ -95,8 +90,7 @@ def scatter_packet_loss_rate(device='all'):
     plt.legend()
     plt.show()
 
-def plot_reward():
-    reward = IO.load('PA-reward')
+def plot_reward(reward):
     p = []
     for i in range(len(reward)):
         p.append(np.mean(reward[0:i]))
@@ -212,8 +206,7 @@ def plot_rate(device=1):
     plt.legend()
     plt.show()
 
-def plot_sum_rate():
-    rate = IO.load('rate')
+def plot_sum_rate(rate):
     sub = []
     mW = []
     avg_sub = []
@@ -331,8 +324,7 @@ def bench_mark():
     plt.legend(loc='right',labels=labels)
     plt.show()
 
-def plot_power_proportion():
-    action = np.array(IO.load('action'))
+def plot_power_proportion(action):
     power = action[:,:env.NUM_OF_DEVICE*2].reshape((len(action),env.NUM_OF_DEVICE,2))
     fig, ax = plt.subplots(2,5)
     for i in range(env.NUM_OF_DEVICE):
@@ -355,10 +347,7 @@ def plot_power_proportion():
     fig.suptitle('Power proportion')
     plt.show()
 
-def plot_all_device_packet_loss_rate():
-    received = IO.load('number_of_received_packet')
-    sent = IO.load('number_of_sent_packet')
-
+def plot_all_device_packet_loss_rate(received, sent):
     px = 1/plt.rcParams['figure.dpi']
     fig, ax = plt.subplots(2,5,figsize=(2240*px,1400*px))
     for k in range(env.NUM_OF_DEVICE):
@@ -385,7 +374,7 @@ def plot_all_device_packet_loss_rate():
     fig.suptitle('Moving avg. Packet loss rate')
     plt.show()
 
-def plot_interface_usage_with_drop(labels=["Sub6GHz", "mmWave"], title="Interface Usage",  H="/", **kwargs):
+def plot_interface_usage_with_drop(received, sent, labels=["Sub6GHz", "mmWave"], title="Interface Usage",  H="/", **kwargs):
     """Given a list of dataframes, with identical columns and index, create a clustered stacked bar plot. 
 labels is a list of the names of the dataframe, used for the legend
 title is a string for the title of the plot 
@@ -393,9 +382,6 @@ title is a string for the title of the plot
 H is the hatch used for identification of the different dataframe"""
     devices = [f'Device {i+1}' for i in range(env.NUM_OF_DEVICE)]
     interface = ['Sub-6GHz','mmWave']
-
-    received = np.array(IO.load('number_of_received_packet'))
-    sent = np.array(IO.load('number_of_sent_packet'))
 
     drop = np.zeros((env.NUM_OF_DEVICE,2))
     receive = np.zeros((env.NUM_OF_DEVICE,2))
