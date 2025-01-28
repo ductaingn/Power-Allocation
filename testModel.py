@@ -49,7 +49,7 @@ def train():
     actor_loss = []
 
     EPSILON = 1
-    LAMBDA = 0.995
+    LAMBDA = 0.96
 
     # Variables for reward based epsilon decay (not in use)
     MIN_VALUE = 0
@@ -79,6 +79,7 @@ def train():
         for frame in range(1,parameters.EPISODE_LENGTH):
             if iteration_count % save_weight_every_n_iteration == 0:
                 model.save_weights(new_weight_path, iteration_count)
+            iteration_count+=1
 
             if(p[frame]>=EPSILON):
                 # Greedy
@@ -140,6 +141,7 @@ def test():
     with open('config.yaml','rt') as file:
         config = yaml.safe_load(file)
     prj_path = config['project_home']
+    weight_path = config['test']['DDPG_weight_path']
     # Test
     num_state = parameters.NUM_STATE
     num_action = parameters.NUM_ACTION
@@ -168,7 +170,8 @@ def test():
     new_results_path = prj_path + 'results/' + formated_time + '/'
     os.makedirs(new_results_path)
 
-    model.load_weights('./DDPG_weights/best_weights/')
+    # model.load_weights('./DDPG_weights/best_weights/')
+    model.load_weights(prj_path + '/' + weight_path, config['test']['iteration_count'])
     for frame in tqdm(range(parameters.EPISODE_LENGTH+1,env.NUM_OF_FRAME)):
         action = model.act(np.expand_dims(state.flatten(),axis=0),_notrandom=True, noise=False)
 

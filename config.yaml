@@ -3,6 +3,7 @@ train:
   environment:
     h_tilde_path: '/home/nguyen/Projects/Group ICN/Power Allocation/Source Code/environment/h_tilde.pickle'
     devices_positions_path: '/home/nguyen/Projects/Group ICN/Power Allocation/Source Code/environment/device_positions.pickle'
+  save_weight_every: 10000
     
 
 test:
@@ -10,4 +11,5 @@ test:
     h_tilde_path: '/home/nguyen/Projects/Group ICN/Power Allocation/Source Code/environment/h_tilde.pickle'
     devices_positions_path: '/home/nguyen/Projects/Group ICN/Power Allocation/Source Code/environment/device_positions.pickle'
     
-  DDPG_weight_path: ''
+  DDPG_weight_path: 'DDPG_weights/2025-01-27-18-01-14'
+  iteration_count: 0

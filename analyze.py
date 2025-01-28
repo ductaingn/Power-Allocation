@@ -6,24 +6,29 @@ import Environment as env
 import pandas as pd
 
 # Plot epsilon
-epsilon = IO.load('epsilon')
+epsilon = IO.load('./results/2025-01-27-18-01-14/epsilon.pickle')
 plt.plot(epsilon)
 plt.xlabel('Frame x Epoch')
 plt.ylabel('Epsilon')
 plt.title('Epsilon')
 plt.show()
 
+received = IO.load('results/2025-01-27-18-01-14/number_of_received_packet.pickle')
+sent = IO.load('results/2025-01-27-18-01-14/number_of_sent_packet.pickle')
+action = IO.load('results/2025-01-27-18-01-14/action.pickle')
+action = np.array(action)
+rate = IO.load('results/2025-01-27-18-01-14/rate.pickle')
 # Plot power sum packet loss rate
-Plot.plot_moving_avg_packet_loss_rate()
+# Plot.plot_moving_avg_packet_loss_rate(received, sent)
 # Plot power proportion
-Plot.plot_power_proportion()
+Plot.plot_power_proportion(action)
 # Plot packet loss rate of each device
-Plot.plot_all_device_packet_loss_rate()
-Plot.plot_sum_rate()
+Plot.plot_all_device_packet_loss_rate(received, sent)
+Plot.plot_sum_rate(rate)
 
 # Plot model's losses
-actor_loss = IO.load('actor_loss')
-critic_loss = IO.load('critic_loss')
+actor_loss = IO.load('./results/2025-01-27-18-01-14/actor_loss.pickle')
+critic_loss = IO.load('./results/2025-01-27-18-01-14/critic_loss.pickle')
 actor_loss = np.array(actor_loss).flatten()
 critic_loss = np.array(critic_loss).flatten()
 fig,ax = plt.subplots(1,2)
@@ -35,7 +40,7 @@ plt.show()
 
 
 # Plot reward
-reward = IO.load('reward')
+reward = IO.load('./results/2025-01-27-18-01-14/reward.pickle')
 p = [reward[0]]
 for i in range(1,len(reward)):
     p.append(1/i*(p[i-1]*(i-1)+reward[i]))
