@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/home/nguyen/Projects/Group ICN/Power Allocation/Source Code/test_stable_baselines3.py", line 14, in <module>
+    model = SAC.load('/home/nguyen/Projects/Group ICN/Power Allocation/Source Code/trained_weights/ppo_model/SB3-2025-04-06-16-42-18/SAC_model_7500_steps.zip')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nguyen/anaconda3/envs/conda_venv/lib/python3.12/site-packages/stable_baselines3/common/base_class.py", line 740, in load
+    model._setup_model()
+  File "/home/nguyen/anaconda3/envs/conda_venv/lib/python3.12/site-packages/stable_baselines3/sac/sac.py", line 168, in _setup_model
+    self.target_entropy = float(-np.prod(self.env.action_space.shape).astype(np.float32))  # type: ignore
+                                         ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'action_space'

@@ -3,4 +3,4 @@ test.py
 .vscode
 result/possible_actions.pickle
 test.ipynb
-wandb
+wandbtrained_weights/
