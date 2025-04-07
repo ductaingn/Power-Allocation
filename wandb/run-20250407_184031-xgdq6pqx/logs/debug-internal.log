@@ -1,8 +1,0 @@
-{"time":"2025-04-07T18:40:31.433132132+07:00","level":"INFO","msg":"using version","core version":"0.18.5"}
-{"time":"2025-04-07T18:40:31.433148055+07:00","level":"INFO","msg":"created symlink","path":"/home/nguyen/Projects/Group ICN/Power Allocation/Source Code/wandb/run-20250407_184031-xgdq6pqx/logs/debug-core.log"}
-{"time":"2025-04-07T18:40:31.537245899+07:00","level":"INFO","msg":"created new stream","id":"xgdq6pqx"}
-{"time":"2025-04-07T18:40:31.537290038+07:00","level":"INFO","msg":"stream: started","id":"xgdq6pqx"}
-{"time":"2025-04-07T18:40:31.537335784+07:00","level":"INFO","msg":"handler: started","stream_id":{"value":"xgdq6pqx"}}
-{"time":"2025-04-07T18:40:31.537308686+07:00","level":"INFO","msg":"writer: Do: started","stream_id":{"value":"xgdq6pqx"}}
-{"time":"2025-04-07T18:40:31.537406953+07:00","level":"INFO","msg":"sender: started","stream_id":"xgdq6pqx"}
-{"time":"2025-04-07T18:40:32.15590873+07:00","level":"INFO","msg":"Starting system monitor"}
