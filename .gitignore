@@ -3,4 +3,4 @@ test.py
 .vscode
 result/possible_actions.pickle
 test.ipynb
-wandbtrained_weights/
+trained_weights/td3_model/SB3-2025-04-06-16-42-18/TD3_model_replay_buffer_7500_steps.pkl
