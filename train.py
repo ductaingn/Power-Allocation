@@ -1,3 +1,6 @@
+import random
+import numpy as np
+import torch
 from stable_baselines3 import SAC, PPO, TD3, HerReplayBuffer
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.logger import configure
@@ -6,23 +9,27 @@ from vec_env import WirelessEnvironment
 from architectures import CustomFeatureExtractor
 import yaml
 from datetime import datetime
+import wandb
+from helper import WandbLoggingCallback
+
+def make_env(config, seed):
+    def _init():
+        return WirelessEnvironment(**config, seed=seed)
+    return _init
+
 if __name__ == "__main__":
     train_configs = yaml.safe_load(open("train_config.yaml"))
-    # num_envs = 4
-    # envs = SubprocVecEnv([lambda: WirelessEnvironment(**train_configs) for _ in range(num_envs)])
+    seed = train_configs.get('seed', 1)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
 
-    # policy_kwargs = dict(
-    #     features_extractor_class=CustomFeatureExtractor,
-    #     features_extractor_kwargs = dict(
-    #         state_dim=envs.observation_space.shape[0],
-    #         action_dim=envs.action_space.shape[0],
-    #         num_devices=10,
-    #     )
-    # )
+    num_envs = train_configs['num_envs']
+    num_episodes_per_env = train_configs['num_episodes_per_env']
+    env_config = train_configs['env_config']
+    max_steps = env_config['max_steps']
 
-    time_now = datetime.now().strftime("SB3-%Y-%m-%d-%H-%M-%S")
-
-    env = WirelessEnvironment(**train_configs)
+    envs = SubprocVecEnv([make_env(config=env_config, seed=seed+i) for i in range(num_envs)])
 
     policy_kwargs = dict(
         features_extractor_class=CustomFeatureExtractor,
@@ -33,18 +40,16 @@ if __name__ == "__main__":
         )
     )
 
-    checkpoint_callback = CheckpointCallback(
-        save_freq=2500,
-        save_path=f"trained_weights/td3_model/{time_now}",
-        name_prefix="TD3_model",
-        save_replay_buffer=True,
-        save_vecnormalize=True
-    ) 
+    time_now = datetime.now().strftime("SB3-%Y-%m-%d-%H-%M-%S")
+
+    wandb.init(project='PowerAllocation',config=train_configs)
+
     logger = configure(folder=f"training_log/{time_now}", format_strings=["stdout","csv"])
 
-    model = TD3('MlpPolicy', env, policy_kwargs=policy_kwargs, verbose=1)
+    model = TD3('MlpPolicy', envs, policy_kwargs=policy_kwargs, verbose=1)
     # model = PPO('MlpPolicy', env, policy_kwargs=policy_kwargs, verbose=1)
     model.set_logger(logger)
-    env.close()
-    model.learn(total_timesteps=10_000, progress_bar=True, log_interval=1, callback=checkpoint_callback)
+
+    model.learn(total_timesteps=max_steps*num_envs*num_episodes_per_env, progress_bar=True, log_interval=1, callback=WandbLoggingCallback(logger))
     model.save(f'sb3_trained_weight/td3_model/{time_now}')
+    envs.close()

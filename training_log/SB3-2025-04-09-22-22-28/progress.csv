@@ -1,0 +1,2 @@
+train/actor_loss,time/time_elapsed,train/critic_loss,train/learning_rate,train/n_updates,time/fps,time/episodes,time/total_timesteps
+-231.88638305664062,1539,0.39545634388923645,0.001,9899,6,1,10000

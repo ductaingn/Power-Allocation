@@ -1,14 +1,15 @@
 import gymnasium as gym
 from gymnasium import Env
-from typing import Optional
+from typing import Optional, Literal
 import pickle
 import numpy as np
 import torch
 import wandb
 from Environment import r_sub as compute_rate_sub, r_mW as compute_rate_mW, G
+import random
 
 class WirelessEnvironment(Env):
-    def __init__(self, h_tilde_path:str, devices_positions_path:str, L_max:int, T:int, D:int, qos_threshold:float, P_sum, max_steps:int):
+    def __init__(self, h_tilde_path: str, devices_positions_path: str, L_max: int, T: int, D: int, qos_threshold: float, P_sum, max_steps: int, seed: Optional[int] = None, algorithm: Optional[Literal["LearnInterfaceAndPower", "LearnInterface", "GreedyInterface"]] = "LearnInterfaceAndPower"):
         super(WirelessEnvironment, self).__init__()
         self.load_h_tilde(h_tilde_path)
         self.load_device_positions(devices_positions_path)
@@ -21,11 +22,27 @@ class WirelessEnvironment(Env):
         self.num_devices = self.device_positions.shape[0]
         self.num_sub_channel = self.h_tilde.shape[-1]
         self.num_beam = self.h_tilde.shape[-1]
+        
+        self.current_step = 1
+        self.max_steps = max_steps
+
+        self.algorithm = algorithm
+
+        if seed is not None:
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+            random.seed(seed)
+        self.seed = seed
+
+        # LoS Path loss - mmWave
+        self.LOS_PATH_LOSS = np.random.normal(0, 5.8, self.max_steps+1)
+        # NLoS Path loss - mmWave
+        self.NLOS_PATH_LOSS = np.random.normal(0, 8.7, self.max_steps+1) 
 
         self.observation_space = gym.spaces.Box(
             low=np.array([
-                np.zeros(shape=(self.num_devices)), # Packet Loss Rate of each device on Sub6GHz
-                np.zeros(shape=(self.num_devices)), # Packet Loss Rate of each device on mmWave,
+                np.zeros(shape=(self.num_devices)), # Quality of Service Satisfaction of each device on Sub6GHz
+                np.zeros(shape=(self.num_devices)), # Quality of Service Satisfaction of each device on mmWave,
                 np.zeros(shape=(self.num_devices)), # Number of received packets of each device on Sub6GHz of previous time step
                 np.zeros(shape=(self.num_devices)), # Number of received packets of each device on mmWave of previous time step
                 np.zeros(shape=(self.num_devices)), # Average Rate of each device on Sub6GHz of previous time step
@@ -34,14 +51,14 @@ class WirelessEnvironment(Env):
                 np.zeros(shape=(self.num_devices)), # Power of each device on mmWave on previous time step
             ]).transpose().flatten(),
             high=np.array([
-                np.ones(shape=(self.num_devices)), # Packet Loss Rate of each device on Sub6GHz
-                np.ones(shape=(self.num_devices)), # Packet Loss Rate of each device on mmWave,
+                np.ones(shape=(self.num_devices)), # Quality of Service Satisfaction of each device on Sub6GHz
+                np.ones(shape=(self.num_devices)), # Quality of Service Satisfaction of each device on mmWave,
                 np.full(shape=(self.num_devices), fill_value=self.L_max), # Number of received packets of each device on Sub6GHz of previous time step
                 np.full(shape=(self.num_devices), fill_value=self.L_max), # Number of received packets of each device on mmWave of previous time step,
                 np.ones(shape=(self.num_devices)), # Average Rate of each device on Sub6GHz of previous time step
                 np.ones(shape=(self.num_devices)), # Average Rate of each device on mmWave of previous time step,
-                np.ones(shape=(self.num_devices)), # Power of each device on Sub6GHz on previous time step
-                np.ones(shape=(self.num_devices)), # Power of each device on mmWave on previous time step,
+                np.ones(shape=(self.num_devices)), # Power of each device on Sub6GHz of previous time step
+                np.ones(shape=(self.num_devices)), # Power of each device on mmWave of previous time step,
             ]).transpose().flatten()
         )
 
@@ -64,20 +81,45 @@ class WirelessEnvironment(Env):
         self.action = np.zeros(shape=(self.num_devices, 4))
         self.instance_reward = 0.0
         self.cumulative_reward = 0.0
-        self.current_step = 1
-        self.max_steps = max_steps
 
-        self.average_rate = np.zeros(shape=(self.num_devices, 2))
-        self.instant_rate = np.zeros(shape=(self.num_devices, 2))
-        self.packet_loss_rate = np.zeros(shape=(self.num_devices, 2))
+        self._init_num_send_packet = np.ones(shape=(self.num_devices, 2))
+        self._init_power = np.full(shape=(self.num_devices, 2), fill_value=self.P_sum/(self.num_devices*2))
+        self._init_allocation = self.allocate(self._init_num_send_packet)
+        self._init_rate = self.compute_instant_rate(
+            allocation=self._init_allocation,
+            power=self._init_power
+        )   # shape=(self.num_devices, 2)
+        
+        self.average_rate = self._init_rate
+        self.previous_rate = self._init_rate.copy() # Data rate of previous time step
+        self.instant_rate = self._init_rate.copy() # Data rate of current time step (acknowledge after get feedback)
+        self.maximum_rate = self.get_maximum_rate() # For normalizing rate to [0,1]
 
-        # LoS Path loss - mmWave
-        self.LOS_PATH_LOSS = np.random.normal(0, 5.8, self.max_steps+1)
-        # NLoS Path loss - mmWave
-        self.NLOS_PATH_LOSS = np.random.normal(0, 8.7, self.max_steps+1) 
+        self.packet_loss_rate = np.zeros((self.num_devices,2)) # Accumulated Packet loss rate of current time step
+        self._init_num_received_packet = self.get_feedback(self._init_allocation, self._init_num_send_packet, self._init_power)
+        self._init_packet_loss_rate = self.compute_packet_loss_rate(
+            self._init_num_received_packet,
+            self._init_num_send_packet,
+        )
+        self.packet_loss_rate = self._init_packet_loss_rate.copy()
 
-        wandb.init(project='PowerAllocation')    
 
+    def get_maximum_rate(self):
+        maximum_rate = np.zeros(shape=2)
+        for k in range(self.num_devices):
+            maximum_rate[0] = max(maximum_rate[0], compute_rate_sub(
+                h=1.0,
+                device_index=k,
+                power=self.P_sum
+            ))
+            maximum_rate[1] = max(maximum_rate[1],compute_rate_mW(
+                h=1.0,
+                device_index=k,
+                power=self.P_sum
+            ))
+
+        return maximum_rate
+    
     def load_h_tilde(self, h_tilde_path:str):
         with open(h_tilde_path, 'rb') as f:
             h_tilde = np.array(pickle.load(f))
@@ -90,12 +132,13 @@ class WirelessEnvironment(Env):
 
     def get_state(self, num_received_packet, power):
         state = np.zeros(shape=(self.num_devices, 8))
-        state[:, 0] = self.packet_loss_rate[:, 0].copy()
-        state[:, 1] = self.packet_loss_rate[:, 1].copy()
+        # QoS satisfaction
+        state[:, 0] = (self.packet_loss_rate[:, 0] <= self.qos_threshold).astype(float)
+        state[:, 1] = (self.packet_loss_rate[:, 1] <= self.qos_threshold).astype(float)
         state[:, 2] = num_received_packet[:, 0].copy()
         state[:, 3] = num_received_packet[:, 1].copy()
-        state[:, 4] = self.average_rate[:, 0]*1e-7
-        state[:, 5] = self.average_rate[:, 1]*1e-10
+        state[:, 4] = self.average_rate[:, 0]/self.maximum_rate[0]
+        state[:, 5] = self.average_rate[:, 1]/self.maximum_rate[1]
         state[:, 6] = power[:, 0].copy()
         state[:, 7] = power[:, 1].copy()
         
@@ -103,10 +146,10 @@ class WirelessEnvironment(Env):
 
         return state
     
-    def get_action(self, network_output):
+    def get_action(self, policy_network_output):
         l_max_estimate = self.estimate_l_max()
 
-        num_send_packet, power = self.compute_number_send_packet_and_power(network_output, l_max_estimate)
+        num_send_packet, power = self.compute_number_send_packet_and_power(policy_network_output, l_max_estimate)
 
         allocation = self.allocate(num_send_packet)
 
@@ -120,17 +163,17 @@ class WirelessEnvironment(Env):
 
         return l_max_estimate
 
-    def compute_number_send_packet_and_power(self, network_output, l_max_estimate)->tuple[np.ndarray, np.ndarray]:
+    def compute_number_send_packet_and_power(self, policy_network_output, l_max_estimate)->tuple[np.ndarray, np.ndarray]:
         power_start_index = 2*self.num_devices
-        interface_score = network_output[:power_start_index].reshape(self.num_devices, 2)
+        interface_score = policy_network_output[:power_start_index].reshape(self.num_devices, 2)
         interface_score = torch.softmax(torch.tensor(interface_score), dim=1).numpy()
 
         number_of_send_packet = np.minimum(
             interface_score*self.L_max,
-            l_max_estimate
-        )
+            l_max_estimate,
+        ).astype(int)
 
-        power = network_output[power_start_index:]
+        power = policy_network_output[power_start_index:]
         power = torch.softmax(torch.tensor(power), dim=-1).numpy()
         power = power.reshape(self.num_devices, 2)
 
@@ -232,7 +275,6 @@ class WirelessEnvironment(Env):
             X = self.NLOS_PATH_LOSS[self.current_step]
             return 72 + 29.2*(np.log10(distance))+X
         
-        h = 0
         # device blocked by obstacle
         if (device_index == 1 or device_index == 5):
             path_loss = path_loss_mW_nlos(distance=np.linalg.norm(device_position))
@@ -287,14 +329,14 @@ class WirelessEnvironment(Env):
 
         return packet_loss_rate
 
-    def step(self, network_output):
+    def step(self, policy_network_output):
         state = None
         reward = None
         terminated = False
         truncated = False
         info = {}
 
-        num_send_packet, power, allocation = self.get_action(network_output)
+        num_send_packet, power, allocation = self.get_action(policy_network_output)
         num_received_packet = self.get_feedback(allocation, num_send_packet, power)
         self.average_rate = self.compute_average_rate()
 
@@ -312,53 +354,30 @@ class WirelessEnvironment(Env):
         if self.current_step > self.max_steps:
             terminated = True
 
-        info['Number of send packet'] = num_send_packet
-        info['Number of received packet'] = num_received_packet
-        info['Power'] = power
-        info['Packet loss rate'] = self.packet_loss_rate
-        info['Average rate'] = self.average_rate
-
-        wandb.log({
-            "Overall/ Reward": reward,
-            "Overall/ Sum Packet loss rate": self.packet_loss_rate.sum()/(self.num_devices*2),
-            "Overall/ Power usage": power.sum(),
-            "Overall / Average rate/ Sub6GHz": self.average_rate[:,0].sum()/(self.num_devices),
-            "Overall / Average rate/ mmWave": self.average_rate[:,1].sum()/(self.num_devices)
-        }, commit=False)
-
-        # Log a bar chart of total dropped packets per device
-        # Calculate dropped packets for each device and interface
-        dropped_table = wandb.Table(columns=["Device", "Interface", "Dropped Packets"])
+        info['Overall/ Reward'] = reward
+        info['Overall/ Sum Packet loss rate'] = self.packet_loss_rate.sum()/(self.num_devices*2)
+        info['Overall/ Average rate/ Sub6GHz'] = self.average_rate[:,0].sum()/(self.num_devices)
+        info['Overall/ Average rate/ mmWave'] = self.average_rate[:,1].sum()/(self.num_devices)
+        info['Overall/ Power usage'] = power.sum()
+        
         for k in range(self.num_devices):
-            dropped_sub6 = num_send_packet[k, 0] - num_received_packet[k, 0]
-            dropped_mmW = num_send_packet[k, 1] - num_received_packet[k, 1]
-            dropped_table.add_data(f"Device {k+1}", "Sub6GHz", dropped_sub6)
-            dropped_table.add_data(f"Device {k+1}", "mmWave", dropped_mmW)
+            info[f'Device {k+1}/ Num. Sent packet/ Sub6GHz'] = num_send_packet[k,0]
+            info[f'Device {k+1}/ Num. Sent packet/ mmWave'] = num_send_packet[k,1]
 
-        # Create a bar chart from the table
-        dropped_chart = wandb.plot.bar(dropped_table, "Device", "Dropped Packets", title="Dropped Packets per Device (Sub6GHz and mmWave)")
-        wandb.log({"Dropped Packets Chart": dropped_chart})
+            info[f'Device {k+1}/ Num. Received packet/ Sub6GHz'] = num_received_packet[k,0]
+            info[f'Device {k+1}/ Num. Received packet/ mmWave'] = num_received_packet[k,1]
+            
+            info[f'Device {k+1}/ Num. Droped packet/ Sub6GHz'] = num_send_packet[k,0] - num_received_packet[k,0]
+            info[f'Device {k+1}/ Num. Droped packet/ mmWave'] = num_send_packet[k,1] - num_received_packet[k,1]
 
-        for k in range(self.num_devices):
-            wandb.log({
-                f'Device {k+1}/ Num. Sent packet/ Sub6GHz': num_send_packet[k,0],
-                f'Device {k+1}/ Num. Sent packet/ mmWave': num_send_packet[k,1],
+            info[f'Device {k+1}/ Power/ Sub6GHz'] = power[k,0]
+            info[f'Device {k+1}/ Power/ mmWave'] = power[k,1]
 
-                f'Device {k+1}/ Num. Received packet/ Sub6GHz': num_received_packet[k,1],
-                f'Device {k+1}/ Num. Received packet/ mmWave': num_received_packet[k,1],
-
-                f'Device {k+1}/ Num. Droped packet/ Sub6GHz': num_send_packet[k,0] - num_received_packet[k,0],
-                f'Device {k+1}/ Num. Droped packet/ mmWave': num_send_packet[k,1] - num_received_packet[k,1],
-
-                f'Device {k+1}/ Power/ Sub6GHz': power[k,0],
-                f'Device {k+1}/ Power/ mmWave': power[k,1],
-
-                f'Device {k+1}/ Packet loss rate/ Sub6GHz': self.packet_loss_rate[k,0],
-                f'Device {k+1}/ Packet loss rate/ mmWave': self.packet_loss_rate[k,1],
-
-                f'Device {k+1}/ Average rate/ Sub6GHz': self.average_rate[k,0],
-                f'Device {k+1}/ Average rate/ mmWave': self.average_rate[k,1],
-            }, commit=True)
+            info[f'Device {k+1}/ Packet loss rate/ Sub6GHz'] = self.packet_loss_rate[k,0]
+            info[f'Device {k+1}/ Packet loss rate/ mmWave'] = self.packet_loss_rate[k,1]
+            info[f'Device {k+1}/ Average rate/ Sub6GHz'] = self.average_rate[k,0]
+            info[f'Device {k+1}/ Average rate/ mmWave'] = self.average_rate[k,1]
+        
 
         return observation, reward, terminated, truncated, info
     
@@ -376,9 +395,9 @@ class WirelessEnvironment(Env):
         self.cumulative_reward = 0.0
         self.current_step = 1
 
-        self.average_rate = np.zeros(shape=(self.num_devices, 2))
-        self.instant_rate = np.zeros(shape=(self.num_devices, 2))
-        self.packet_loss_rate = np.zeros(shape=(self.num_devices, 2))
+        self.average_rate = self._init_rate.copy()
+        self.instant_rate = self._init_rate.copy()
+        self.packet_loss_rate = self._init_packet_loss_rate.copy()
 
         # LoS Path loss - mmWave
         self.LOS_PATH_LOSS = np.random.normal(0, 5.8, self.max_steps+1)
@@ -393,17 +412,10 @@ class WirelessEnvironment(Env):
         reward_power_risk = 0
 
         for k in range(self.num_devices):
-            packet_loss_rate_sub, packet_loss_rate_mW = self.state[k, 0], self.state[k, 1]
             prev_power_sub, prev_power_mW = self.state[k, 6], self.state[k, 7]
             power_sub, power_mw = power[k, 0], power[k, 1]
-            qos_satisfaction = [1,1]
-            
-            if packet_loss_rate_sub > self.qos_threshold:
-                reward_interface_risk += self.num_devices*packet_loss_rate_sub
-                qos_satisfaction[0] = 0
-            if packet_loss_rate_mW > self.qos_threshold:
-                reward_interface_risk += self.num_devices*packet_loss_rate_mW
-                qos_satisfaction[1] = 0
+            qos_satisfaction = self.state[k, 0], self.state[k, 1]
+            packet_loss_rate_sub, packet_loss_rate_mW = self.packet_loss_rate[k,0], self.packet_loss_rate[k,1]
             
             reward_sum += (num_received_packet[k,0] + num_received_packet[k,1])/(num_send_packet[k,0] + num_send_packet[k,1]) - (1-qos_satisfaction[0]) - (1-qos_satisfaction[1])
             reward_power_risk += self.sigmoid(
@@ -412,7 +424,6 @@ class WirelessEnvironment(Env):
             )
             
             if np.isnan(reward_power_risk):
-                
                 raise ValueError(f"reward_power_risk resulted in NaN,(1 - prev_power_sub) = {(1 - prev_power_sub)}, 1 - prev_power_mW) = {(1 - prev_power_mW)}")
 
             if np.isinf(reward_power_risk):

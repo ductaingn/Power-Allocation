@@ -1,8 +1,13 @@
-h_tilde_path: '/home/nguyen/Projects/Group ICN/Power Allocation/Source Code/environment/h_tilde.pickle'
-devices_positions_path: '/home/nguyen/Projects/Group ICN/Power Allocation/Source Code/environment/device_positions.pickle'
-L_max: 10
-T: 0.001
-D: 8000
-qos_threshold: 0.1
-P_sum: 0.06325
-max_steps: 10000
+env_config:
+  h_tilde_path: '/home/nguyen/Projects/Group ICN/Power Allocation/Source Code/environment/h_tilde.pickle'
+  devices_positions_path: '/home/nguyen/Projects/Group ICN/Power Allocation/Source Code/environment/device_positions.pickle'
+  L_max: 10
+  T: 0.001
+  D: 8000
+  qos_threshold: 0.1
+  P_sum: 0.06325
+  max_steps: 10000
+
+num_envs: 3
+num_episodes_per_env: 1
+seed: 1
