@@ -18,7 +18,7 @@ def make_env(config, seed):
     return _init
 
 if __name__ == "__main__":
-    train_configs = yaml.safe_load(open("train_config.yaml"))
+    train_configs:dict = yaml.safe_load(open("train_config.yaml"))
     seed = train_configs.get('seed', 1)
     random.seed(seed)
     np.random.seed(seed)
@@ -42,14 +42,17 @@ if __name__ == "__main__":
 
     time_now = datetime.now().strftime("SB3-%Y-%m-%d-%H-%M-%S")
 
-    wandb.init(project='PowerAllocation',config=train_configs)
+    wandb_config = train_configs.copy()
+    wandb_config["algorithm"] = env_config["algorithm"]
+
+    wandb.init(project='PowerAllocation', config=wandb_config)
 
     logger = configure(folder=f"training_log/{time_now}", format_strings=["stdout","csv"])
 
-    model = TD3('MlpPolicy', envs, policy_kwargs=policy_kwargs, verbose=1)
+    model = SAC('MlpPolicy', envs, policy_kwargs=policy_kwargs, verbose=1, seed=seed)
     # model = PPO('MlpPolicy', env, policy_kwargs=policy_kwargs, verbose=1)
     model.set_logger(logger)
 
     model.learn(total_timesteps=max_steps*num_envs*num_episodes_per_env, progress_bar=True, log_interval=1, callback=WandbLoggingCallback(logger))
-    model.save(f'sb3_trained_weight/td3_model/{time_now}')
+    model.save(f'sb3_trained_weight/sac_model/{time_now}')
     envs.close()
