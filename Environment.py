@@ -91,8 +91,7 @@ def path_loss_mW_nlos(distance,frame):
 
 
 # Main Transmit Beam Gain G_b
-def G(eta=5*np.pi/180, beta=0):
-    epsilon = 0.01
+def G(eta=5*np.pi/180, beta=0, epsilon=0.1):
     return (2*np.pi-(2*np.pi-eta)*epsilon)/(eta)
 
 

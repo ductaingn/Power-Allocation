@@ -11,7 +11,7 @@ import random
 ln2 = np.log(2)
 
 class WirelessEnvironment(Env):
-    def __init__(self, h_tilde_path: str, devices_positions_path: str, L_max: int, T: int, D: int, qos_threshold: float, P_sum, max_steps: int, seed: Optional[int] = None, algorithm: Optional[Literal["Random", "LearnInterfaceAndPower", "LearnInterface", "WaterFilling"]] = "LearnInterfaceAndPower"):
+    def __init__(self, h_tilde_path: str, devices_positions_path: str, L_max: int, T: int, D: int, qos_threshold: float, P_sum, max_steps: int, reward_coef:dict, seed: Optional[int] = None, algorithm: Optional[Literal["Random", "LearnInterfaceAndPower", "WaterFilling"]] = "LearnInterfaceAndPower"):
         super(WirelessEnvironment, self).__init__()
         self.load_h_tilde(h_tilde_path)
         self.load_device_positions(devices_positions_path)
@@ -27,6 +27,7 @@ class WirelessEnvironment(Env):
         
         self.current_step = 1
         self.max_steps = max_steps
+        self.reward_coef = reward_coef
 
         self.algorithm = algorithm
 
@@ -353,7 +354,7 @@ class WirelessEnvironment(Env):
 
         return h
     
-    def compute_h_mW(self, device_position, device_index, h_tilde, eta=5*np.pi/180, beta=0):
+    def compute_h_mW(self, device_position, device_index, h_tilde, eta=5*np.pi/180, beta=0, epsilon=0.1):
         def path_loss_mW_los(distance):
             X = self.LOS_PATH_LOSS[self.current_step]
             return 61.4 + 20*(np.log10(distance))+X
@@ -366,11 +367,11 @@ class WirelessEnvironment(Env):
         # device blocked by obstacle
         if (device_index == 1 or device_index == 5):
             path_loss = path_loss_mW_nlos(distance=np.linalg.norm(device_position))
-            h = np.abs(G(eta, beta)*h_tilde* pow(10, -path_loss/20)*0.01)**2  # G_Rx^k=epsilon
+            h = G(eta, beta, epsilon)*pow(10, -path_loss/10)*epsilon # G_Rx^k=epsilon
         # device not blocked
         else:
             path_loss = path_loss_mW_los(distance=np.linalg.norm(device_position))
-            h = np.abs((G(eta, beta)**2)*h_tilde * pow(10, -path_loss/20))**2  # G_Rx^k = G_b
+            h = G(eta, beta, epsilon)**2*pow(10, -path_loss/10) # G_Rx^k = G_b
 
         return h
     
@@ -555,7 +556,7 @@ class WirelessEnvironment(Env):
         reward_qos = ((self.current_step-1)*self.reward_qos + reward_qos)/self.current_step
 
         self.reward_qos = reward_qos
-        self.instance_reward = reward_qos + reward_power
+        self.instance_reward = self.reward_coef['reward_qos']*reward_qos + self.reward_coef['reward_power']*reward_power
         
         return reward_qos, reward_power, self.instance_reward
     

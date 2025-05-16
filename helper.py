@@ -42,3 +42,23 @@ class WandbLoggingCallback(WandbCallback):
                 log = self._pre_process_log(info)
                 wandb.log(log, commit=True)
         return True
+    
+def _pre_process_log(info:dict) -> dict:
+    # Pre-process the info dictionary to remove unwanted keys
+    # This is just an example, you can modify it as per your requirements
+    keys_to_remove = ["terminal_observation", " TimeLimit.truncated", "episode.t", "episode.l", "episode.r"]
+    for key in keys_to_remove:
+        info.pop(key, None)
+
+    return info
+    
+def custom_callback(locals, globals):
+    """
+    Callback to log for Random scenario
+    """
+    infos = locals.get("infos", [])
+    for info in infos:
+        if info:  # Log only if info is not empty
+            log = _pre_process_log(info)
+            wandb.log(log, commit=True)
+    return True
