@@ -4,3 +4,5 @@ test.py
 result/possible_actions.pickle
 test.ipynb
 wandb
+sb3_trained_weight
+training_log
