@@ -509,10 +509,10 @@ class WirelessEnvironment(Env):
                 channel_power = self.compute_h_mW(
                     device_position=self.device_positions[k], device_index=k, 
                     h_tilde=self.h_tilde[self.current_step, 1, k, mW_beam_index])
-                info['Device {k+1}/ Chanel power difference/ mmWave'] = np.linalg.norm(self
+                info[f'Device {k+1}/ Chanel power difference/ mmWave'] = np.linalg.norm(self
                                                                                          .estimated_average_channel_power[k,0]-channel_power)
             else:
-                info['Device {k+1}/ Chanel power difference/ mmWave'] = 0
+                info[f'Device {k+1}/ Chanel power difference/ mmWave'] = 0
             
         
 
