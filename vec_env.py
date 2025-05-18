@@ -560,7 +560,7 @@ class WirelessEnvironment(Env):
 
         for k in range(self.num_devices):
             prev_power_sub, prev_power_mW = self.state[k, 6], self.state[k, 7]
-            power_sub, power_mw = power[k, 0], power[k, 1]
+            power_sub, power_mw = power[k, 0], power[k, 1] # Unit: percentage
             qos_satisfaction = self.state[k, 0], self.state[k, 1]
             packet_loss_rate_sub, packet_loss_rate_mW = self.packet_loss_rate[k,0], self.packet_loss_rate[k,1]
             
@@ -568,12 +568,12 @@ class WirelessEnvironment(Env):
 
             if num_send_packet[k,0] > 0:
                 self.estimated_ideal_power[k,0] = estimate_ideal_power(num_send_packet[k,0], self.estimated_average_channel_power[k,0], W_SUB)
-                eff_score = calculate_efficiency_index(power_sub, self.estimated_ideal_power[k,0])
+                eff_score = calculate_efficiency_index(power_sub*self.P_sum, self.estimated_ideal_power[k,0])
                 fairness_value.append(eff_score)
 
             if num_send_packet[k,1] > 0:
                 self.estimated_ideal_power[k,1] = estimate_ideal_power(num_send_packet[k,1], self.estimated_average_channel_power[k,1], W_MW)
-                eff_score = calculate_efficiency_index(power_mw, self.estimated_ideal_power[k,1])
+                eff_score = calculate_efficiency_index(power_mw*self.P_sum, self.estimated_ideal_power[k,1])
                 fairness_value.append(eff_score)
 
         fairness_value = np.array(fairness_value)
