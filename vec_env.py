@@ -459,11 +459,6 @@ class WirelessEnvironment(Env):
         if np.any(np.isnan(state)) or np.any(np.isinf(state)):
             raise ValueError("State contains NaN or Inf values")
         observation = state.flatten()
-        
-
-        self.current_step += 1
-        if self.current_step > self.max_steps:
-            terminated = True
 
         info['Overall/ Reward'] = reward
         info['Overall/ Reward QoS'] = reward_qos
@@ -514,7 +509,9 @@ class WirelessEnvironment(Env):
             else:
                 info[f'Device {k+1}/ Chanel power difference/ mmWave'] = 0
             
-        
+        self.current_step += 1
+        if self.current_step > self.max_steps:
+            terminated = True
 
         return observation, reward, terminated, truncated, info
     
