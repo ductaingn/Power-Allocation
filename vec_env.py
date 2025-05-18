@@ -549,7 +549,6 @@ class WirelessEnvironment(Env):
         def calculate_efficiency_index(power, estimated_ideal_power, max_power=1.0):
             return (estimated_ideal_power - power)/max_power
         
-        self.estimated_ideal_power = np.zeros(shape=(self.num_devices, 2))
         def estimate_ideal_power(num_send_packet, average_channel_power, W):
             if average_channel_power==0:
                 return self.P_sum
@@ -572,12 +571,12 @@ class WirelessEnvironment(Env):
 
             if num_send_packet[k,0] > 0:
                 self.estimated_ideal_power[k,0] = estimate_ideal_power(num_send_packet[k,0], self.estimated_average_channel_power[k,0], W_SUB)
-                eff_score = calculate_efficiency_index(power_sub, self.estimated_ideal_power)
+                eff_score = calculate_efficiency_index(power_sub, self.estimated_ideal_power[k,0])
                 fairness_value.append(eff_score)
 
             if num_send_packet[k,1] > 0:
-                self.estimated_ideal_power[k,1] = estimate_ideal_power(num_send_packet[k,1], self.estimated_average_channel_power[k,1], W_SUB)
-                eff_score = calculate_efficiency_index(power_sub, self.estimated_ideal_power)
+                self.estimated_ideal_power[k,1] = estimate_ideal_power(num_send_packet[k,1], self.estimated_average_channel_power[k,1], W_MW)
+                eff_score = calculate_efficiency_index(power_mw, self.estimated_ideal_power[k,1])
                 fairness_value.append(eff_score)
 
         fairness_value = np.array(fairness_value)
