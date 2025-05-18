@@ -504,7 +504,7 @@ class WirelessEnvironment(Env):
             else:
                 info[f'Device {k+1}/ Chanel power difference/ Sub6GHz'] = 0
             
-            if num_send_packet[k,0]>0:
+            if num_send_packet[k,1]>0:
                 mW_beam_index = allocation[k,1]
                 channel_power = self.compute_h_mW(
                     device_position=self.device_positions[k], device_index=k, 
