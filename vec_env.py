@@ -432,7 +432,7 @@ class WirelessEnvironment(Env):
                 average_channel_power[k,0] = (self.current_step-1)/self.current_step*average_channel_power[k,0]
             
             if num_received_packet[k, 1] > 0:
-                h = (2**(estimate_instant_rate[k,1]/W_SUB)-1)/power[k,1]*W_SUB*SIGMA_SQR
+                h = (2**(estimate_instant_rate[k,1]/W_MW)-1)/power[k,1]*W_MW*SIGMA_SQR
                 average_channel_power[k,1] = 1/self.current_step*((self.current_step-1)*average_channel_power[k,1] + h)
             else:
                 average_channel_power[k,1] = (self.current_step-1)/self.current_step*average_channel_power[k,1]
@@ -505,7 +505,7 @@ class WirelessEnvironment(Env):
                     device_position=self.device_positions[k], device_index=k, 
                     h_tilde=self.h_tilde[self.current_step, 1, k, mW_beam_index])
                 info[f'Device {k+1}/ Chanel power difference/ mmWave'] = np.linalg.norm(self
-                                                                                         .estimated_average_channel_power[k,0]-channel_power)
+                                                                                         .estimated_average_channel_power[k,1]-channel_power)
             else:
                 info[f'Device {k+1}/ Chanel power difference/ mmWave'] = 0
             
