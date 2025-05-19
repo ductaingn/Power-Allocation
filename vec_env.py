@@ -422,22 +422,21 @@ class WirelessEnvironment(Env):
     
     def estimate_average_channel_power(self, num_received_packet, power):
         estimate_instant_rate = num_received_packet*self.D/self.T
-        average_channel_power = np.empty(shape=(self.num_devices, 2))
 
         for k in range(self.num_devices):
             if num_received_packet[k, 0] > 0:
-                h = (2**(estimate_instant_rate[k,0]/W_SUB)-1)/power[k,0]*W_SUB*SIGMA_SQR
-                average_channel_power[k,0] = 1/self.current_step*((self.current_step-1)*average_channel_power[k,0] + h)
+                h = (2**(estimate_instant_rate[k,0]/W_SUB)-1)/(power[k,0]*self.P_sum)*W_SUB*SIGMA_SQR
+                self.estimated_average_channel_power[k,0] = 1/self.current_step*((self.current_step-1)*self.estimated_average_channel_power[k,0] + h)
             else:
-                average_channel_power[k,0] = (self.current_step-1)/self.current_step*average_channel_power[k,0]
+                self.estimated_average_channel_power[k,0] = (self.current_step-1)/self.current_step*self.estimated_average_channel_power[k,0]
             
             if num_received_packet[k, 1] > 0:
-                h = (2**(estimate_instant_rate[k,1]/W_MW)-1)/power[k,1]*W_MW*SIGMA_SQR
-                average_channel_power[k,1] = 1/self.current_step*((self.current_step-1)*average_channel_power[k,1] + h)
+                h = (2**(estimate_instant_rate[k,1]/W_MW)-1)/(power[k,1]*self.P_sum)*W_MW*SIGMA_SQR
+                self.estimated_average_channel_power[k,1] = 1/self.current_step*((self.current_step-1)*self.estimated_average_channel_power[k,1] + h)
             else:
-                average_channel_power[k,1] = (self.current_step-1)/self.current_step*average_channel_power[k,1]
+                self.estimated_average_channel_power[k,1] = (self.current_step-1)/self.current_step*self.estimated_average_channel_power[k,1]
 
-        return average_channel_power
+        return self.estimated_average_channel_power
     
     def step(self, policy_network_output):
         state = None
@@ -494,8 +493,8 @@ class WirelessEnvironment(Env):
                 channel_power = self.compute_h_sub(
                     device_position=self.device_positions[k], 
                     h_tilde=self.h_tilde[self.current_step, 0, k, sub_channel_index])
-                info[f'Device {k+1}/ Chanel power difference/ Sub6GHz'] = np.linalg.norm(self
-                                                                                         .estimated_average_channel_power[k,0]-channel_power)
+                info[f'Device {k+1}/ Chanel power difference/ Sub6GHz'] = \
+                    np.linalg.norm(self.estimated_average_channel_power[k,0]-channel_power)/channel_power
             else:
                 info[f'Device {k+1}/ Chanel power difference/ Sub6GHz'] = 0
             
@@ -504,8 +503,8 @@ class WirelessEnvironment(Env):
                 channel_power = self.compute_h_mW(
                     device_position=self.device_positions[k], device_index=k, 
                     h_tilde=self.h_tilde[self.current_step, 1, k, mW_beam_index])
-                info[f'Device {k+1}/ Chanel power difference/ mmWave'] = np.linalg.norm(self
-                                                                                         .estimated_average_channel_power[k,1]-channel_power)
+                info[f'Device {k+1}/ Chanel power difference/ mmWave'] = \
+                    np.linalg.norm(self.estimated_average_channel_power[k,1]-channel_power)/channel_power
             else:
                 info[f'Device {k+1}/ Chanel power difference/ mmWave'] = 0
             
@@ -543,7 +542,7 @@ class WirelessEnvironment(Env):
         return observation, info
     
     def get_reward(self, num_send_packet, num_received_packet, power):
-        def calculate_efficiency_index(power, estimated_ideal_power, max_power=1.0):
+        def calculate_efficiency_index(power, estimated_ideal_power, max_power=self.P_sum):
             return (estimated_ideal_power - power)/max_power
         
         def estimate_ideal_power(num_send_packet, average_channel_power, W):
