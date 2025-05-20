@@ -1,7 +1,7 @@
 import numpy as np
 import IO
 import matplotlib.pyplot as plt
-import Environment as env
+import environment.Environment as env
 import pandas as pd
 
 def plot_packet_loss_rate(device=1):

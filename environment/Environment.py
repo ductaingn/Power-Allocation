@@ -1,8 +1,5 @@
 import numpy as np
-
-# the considered space has a width of 90 meters, a length of 90 meters
-length = 200
-width = 200
+import pickle
 
 # Number of APs
 NUM_OF_AP = 1
@@ -94,16 +91,40 @@ def path_loss_mW_nlos(distance,frame):
 def G(eta=5*np.pi/180, beta=0, epsilon=0.1):
     return (2*np.pi-(2*np.pi-eta)*epsilon)/(eta)
 
-
-# Channel coefficient h=h_tilde* 10^(-pathloss/20)
-# h_tilde = (a + b*i)/sqrt(2)
-# in which a and b is random value from a Normal distribution
-def generate_h_tilde(mu, sigma, amount):
+def generate_h_tilde_device_chanel(mu:float, sigma:float, amount:int)->np.ndarray:
+    """
+    Channel coefficient
+        h=h_tilde* 10^(-pathloss/20)
+        h_tilde = (a + b*i)/sqrt(2)
+    
+        in which a and b is random value from a Normal(mu, sigma) distribution
+    """
     re = np.random.normal(mu, sigma, amount)
     im = np.random.normal(mu, sigma, amount)
     h_tilde = []
     for i in range(amount):
         h_tilde.append(complex(re[i], im[i])/np.sqrt(2))
+    return np.array(h_tilde)
+
+def generate_h_tilde(num_timestep:int, num_device:int, num_subchannel:int, num_beam:int, mu:float, sigma:float, save:bool=True, save_path:str='environment/h_tilde.pickle')->np.ndarray:
+    h_tilde = []
+    for k in range(num_device):
+        h_tilde_k_sub, h_tilde_k_mw = [], []
+        for n in range(num_subchannel):
+            h_tilde_k_sub.append(generate_h_tilde_device_chanel(mu, sigma, num_timestep))
+            
+        for m in range(num_beam):
+            h_tilde_k_mw.append(generate_h_tilde_device_chanel(mu, sigma, num_timestep))
+
+        h_tilde.append(np.array([h_tilde_k_sub, h_tilde_k_mw]))
+
+    h_tilde = np.array(h_tilde) # [device index, interface, channel index, timestep]
+    h_tilde = np.transpose(h_tilde, (3, 1, 0, 2)) # [timestep, interface, device index, channel_index] (3, 1, 0, 2)
+
+    if save:
+        with open(save_path, 'wb') as file:
+            pickle.dump(h_tilde, file)
+
     return h_tilde
 
 

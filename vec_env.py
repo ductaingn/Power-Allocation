@@ -5,7 +5,7 @@ import pickle
 import numpy as np
 import torch
 import wandb
-from Environment import r_sub as compute_rate_sub, r_mW as compute_rate_mW, G, W_SUB, W_MW, SIGMA_SQR
+from environment.Environment import r_sub as compute_rate_sub, r_mW as compute_rate_mW, G, W_SUB, W_MW, SIGMA_SQR
 import random
 
 ln2 = np.log(2)
@@ -144,8 +144,8 @@ class WirelessEnvironment(Env):
         state[:, 3] = num_received_packet[:, 1].copy()
         state[:, 4] = self.average_rate[:, 0]/self.maximum_rate[0]
         state[:, 5] = self.average_rate[:, 1]/self.maximum_rate[1]
-        state[:, 6] = power[:, 0].copy()
-        state[:, 7] = power[:, 1].copy()
+        state[:, 6] = power[:, 0].copy()*10.0 # Scale up
+        state[:, 7] = power[:, 1].copy()*10.0
         
         self.state = state
 
@@ -356,7 +356,7 @@ class WirelessEnvironment(Env):
 
         return h
     
-    def compute_h_mW(self, device_position, device_index, h_tilde, eta=5*np.pi/180, beta=0, epsilon=0.1):
+    def compute_h_mW(self, device_position, device_index, h_tilde):
         def path_loss_mW_los(distance):
             X = self.LOS_PATH_LOSS[self.current_step]
             return 61.4 + 20*(np.log10(distance))+X
@@ -369,11 +369,12 @@ class WirelessEnvironment(Env):
         # device blocked by obstacle
         if (device_index == 1 or device_index == 5):
             path_loss = path_loss_mW_nlos(distance=np.linalg.norm(device_position))
-            h = G(eta, beta, epsilon)*pow(10, -path_loss/10)*epsilon # G_Rx^k=epsilon
+            epsilon = 0.005 # side lobe beam gain
+            h = G()*pow(10, -path_loss/10)*epsilon # G_Rx^k=epsilon
         # device not blocked
         else:
             path_loss = path_loss_mW_los(distance=np.linalg.norm(device_position))
-            h = G(eta, beta, epsilon)**2*pow(10, -path_loss/10) # G_Rx^k = G_b
+            h = G()**2*pow(10, -path_loss/10) # G_Rx^k = G_b
 
         return h
     
@@ -421,7 +422,7 @@ class WirelessEnvironment(Env):
         return packet_loss_rate
     
     def estimate_average_channel_power(self, num_received_packet, power):
-        estimate_instant_rate = num_received_packet*self.D/self.T
+        estimate_instant_rate = self.rate
 
         for k in range(self.num_devices):
             if num_received_packet[k, 0] > 0:
@@ -485,8 +486,8 @@ class WirelessEnvironment(Env):
             info[f'Device {k+1}/ Average rate/ Sub6GHz'] = self.average_rate[k,0]
             info[f'Device {k+1}/ Average rate/ mmWave'] = self.average_rate[k,1]
 
-            info[f'Device {k+1}/ Estimated ideal power/ Sub6GHz'] = self.estimated_ideal_power[k,0]
-            info[f'Device {k+1}/ Estimated ideal power/ mmWave'] = self.estimated_ideal_power[k,1]
+            info[f'Device {k+1}/ Estimated ideal power/ Sub6GHz'] = self.estimated_ideal_power[k,0]/self.P_sum
+            info[f'Device {k+1}/ Estimated ideal power/ mmWave'] = self.estimated_ideal_power[k,1]/self.P_sum
 
             if num_send_packet[k,0]>0:
                 sub_channel_index = allocation[k,0]
