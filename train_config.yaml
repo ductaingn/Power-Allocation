@@ -7,10 +7,10 @@ env_config:
   qos_threshold: 0.1
   P_sum: 0.06325
   max_steps: 10000
-  algorithm: "LearnInterfaceAndPower" # Literal["Random", "LearnInterfaceAndPower", "LearnInterface", "WaterFilling"]
+  algorithm: "LearnInterface" # Literal["Random", "LearnInterfaceAndPower", "LearnInterface", "WaterFilling"]
 
   reward_coef:
-    reward_qos: 0
+    reward_qos: 10
     reward_power: 10
 
 seed: 1

@@ -1,6 +1,6 @@
 import gymnasium as gym
 from gymnasium import Env
-from torch.nn.functional import kl_div, softmax
+from torch.nn.functional import softmax
 from typing import Optional, Literal
 import pickle
 import numpy as np
@@ -484,24 +484,6 @@ class WirelessEnvironment(Env):
 
             info[f'Device {k+1}/ Estimated ideal power/ Sub6GHz'] = self.estimated_ideal_power[k,0]/self.P_sum
             info[f'Device {k+1}/ Estimated ideal power/ mmWave'] = self.estimated_ideal_power[k,1]/self.P_sum
-
-            if num_send_packet[k,0]>0:
-                sub_channel_index = allocation[k,0]
-                channel_power = self.compute_h_sub(
-                    device_position=self.device_positions[k], 
-                    h_tilde=self.h_tilde[self.current_step, 0, k, sub_channel_index])
-                info[f'Device {k+1}/ Chanel power difference/ Sub6GHz'] = 1-np.abs(self.channel_power_gain[k,0]/channel_power)
-            else:
-                info[f'Device {k+1}/ Chanel power difference/ Sub6GHz'] = 0
-            
-            if num_send_packet[k,1]>0:
-                mW_beam_index = allocation[k,1]
-                channel_power = self.compute_h_mW(
-                    device_position=self.device_positions[k], device_index=k, 
-                    h_tilde=self.h_tilde[self.current_step, 1, k, mW_beam_index])
-                info[f'Device {k+1}/ Chanel power difference/ mmWave'] = 1-np.abs(self.channel_power_gain[k,1]/channel_power)
-            else:
-                info[f'Device {k+1}/ Chanel power difference/ mmWave'] = 0
             
         self.current_step += 1
         if self.current_step > self.max_steps:
@@ -537,9 +519,6 @@ class WirelessEnvironment(Env):
         return observation, info
     
     def get_reward(self, num_sent_packet, num_received_packet, power):
-        def calculate_efficiency_index(power, estimated_ideal_power, max_power=self.P_sum):
-            return (estimated_ideal_power - power)/max_power
-        
         def estimate_ideal_power(num_send_packet, channel_power, W):
             if channel_power==0:
                 return self.P_sum
@@ -554,10 +533,8 @@ class WirelessEnvironment(Env):
         predicted_power = []
 
         for k in range(self.num_devices):
-            prev_power_sub, prev_power_mW = self.state[k, 6], self.state[k, 7]
             power_sub, power_mw = power[k, 0], power[k, 1] # Unit: percentage
             qos_satisfaction = self.state[k, 0], self.state[k, 1]
-            packet_loss_rate_sub, packet_loss_rate_mW = self.packet_loss_rate[k,0], self.packet_loss_rate[k,1]
             
             reward_qos += (num_received_packet[k,0] + num_received_packet[k,1])/(num_sent_packet[k,0] + num_sent_packet[k,1]) - (1-qos_satisfaction[0]) - (1-qos_satisfaction[1])
 

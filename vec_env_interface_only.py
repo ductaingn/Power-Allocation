@@ -1,5 +1,6 @@
 import gymnasium as gym
 from gymnasium import Env
+from torch.nn.functional import softmax
 from typing import Optional, Literal
 import pickle
 import numpy as np
@@ -84,10 +85,12 @@ class WirelessEnvironmentInterfaceOnly(Env):
         self._init_num_send_packet = np.ones(shape=(self.num_devices, 2))
         self._init_power = np.full(shape=(self.num_devices, 2), fill_value=self.P_sum/(self.num_devices*2))
         self._init_allocation = self.allocate(self._init_num_send_packet)
+        self.channel_power_gain = np.zeros(shape=(self.num_devices, 2))
         self._init_rate = self.compute_instant_rate(
             allocation=self._init_allocation,
             power=self._init_power
         )   # shape=(self.num_devices, 2)
+        self.estimated_ideal_power = np.zeros(shape=(self.num_devices, 2))
         
         self.average_rate = self._init_rate
         self.previous_rate = self._init_rate.copy() # Data rate of previous time step
@@ -108,12 +111,10 @@ class WirelessEnvironmentInterfaceOnly(Env):
         for k in range(self.num_devices):
             maximum_rate[0] = max(maximum_rate[0], compute_rate_sub(
                 h=1.0,
-                device_index=k,
                 power=self.P_sum
             ))
             maximum_rate[1] = max(maximum_rate[1],compute_rate_mW(
                 h=1.0,
-                device_index=k,
                 power=self.P_sum
             ))
 
@@ -153,25 +154,6 @@ class WirelessEnvironmentInterfaceOnly(Env):
             allocation = self.allocate(num_send_packet)
 
         return num_send_packet, power, allocation
-    
-    def random_number_send_packet_and_power(self):
-        num_send_packet:np.ndarray = np.random.randint(0, self.L_max, (self.num_devices,2))
-        power = torch.softmax(torch.tensor(np.random.rand(self.num_devices*2)), dim=-1).reshape(self.num_devices, 2).numpy()
-
-        for k in range(self.num_devices):
-            if num_send_packet[k].sum() == 0:
-                if np.random.rand()>0.5:
-                    num_send_packet[k,0] = 1
-                    power[k,1] = 0 # For analyzing purpose
-                else:
-                    num_send_packet[k,1] = 1
-                    power[k,0] = 0
-            if num_send_packet[k].sum() > self.L_max:
-                proportion = num_send_packet[k,0]/num_send_packet[k].sum()
-                num_send_packet[k,0] = np.floor(proportion*self.L_max)
-                num_send_packet[k,1] = self.L_max-num_send_packet[k,0]
-        
-        return num_send_packet, power
 
     def water_filling(self, allocation, epsilon):
         power:float
@@ -333,7 +315,7 @@ class WirelessEnvironmentInterfaceOnly(Env):
 
         return h
     
-    def compute_h_mW(self, device_position, device_index, h_tilde, eta=5*np.pi/180, beta=0, epsilon=0.1):
+    def compute_h_mW(self, device_position, device_index, h_tilde):
         def path_loss_mW_los(distance):
             X = self.LOS_PATH_LOSS[self.current_step]
             return 61.4 + 20*(np.log10(distance))+X
@@ -346,11 +328,12 @@ class WirelessEnvironmentInterfaceOnly(Env):
         # device blocked by obstacle
         if (device_index == 1 or device_index == 5):
             path_loss = path_loss_mW_nlos(distance=np.linalg.norm(device_position))
-            h = G(eta, beta, epsilon)*pow(10, -path_loss/10)*epsilon # G_Rx^k=epsilon
+            epsilon = 0.005
+            h = G()*pow(10, -path_loss/10)*epsilon # G_Rx^k=epsilon
         # device not blocked
         else:
             path_loss = path_loss_mW_los(distance=np.linalg.norm(device_position))
-            h = G(eta, beta, epsilon)**2*pow(10, -path_loss/10) # G_Rx^k = G_b
+            h = G()**2*pow(10, -path_loss/10) # G_Rx^k = G_b
 
         return h
     
@@ -361,19 +344,19 @@ class WirelessEnvironmentInterfaceOnly(Env):
             sub_channel_index = allocation[k, 0]
             mW_beam_index = allocation[k, 1]
             if (sub_channel_index != -1):
-                h_sub_k = self.compute_h_sub(
+                self.channel_power_gain[k, 0] = self.compute_h_sub(
                     device_position=self.device_positions[k], 
                     h_tilde=self.h_tilde[self.current_step, 0, k, sub_channel_index]
                 )
 
                 p = power[k,0]*self.P_sum
-                rate[k,0] = compute_rate_sub(h_sub_k, device_index=k,power=p)
+                rate[k,0] = compute_rate_sub(self.channel_power_gain[k, 0], power=p)
             if (mW_beam_index != -1):
-                h_mW_k = self.compute_h_mW(
+                self.channel_power_gain[k, 1] = self.compute_h_mW(
                     device_position=self.device_positions[k], device_index=k, 
                     h_tilde=self.h_tilde[self.current_step, 1, k, mW_beam_index])
                 p = power[k,1]*self.P_sum
-                rate[k,1] = compute_rate_mW(h_mW_k, device_index=k,power=p)
+                rate[k,1] = compute_rate_mW(self.channel_power_gain[k, 1], power=p)
 
         return rate
     
@@ -397,24 +380,20 @@ class WirelessEnvironmentInterfaceOnly(Env):
 
         return packet_loss_rate
     
-    def estimate_average_channel_power(self, num_received_packet, power):
-        estimate_instant_rate = num_received_packet*self.D/self.T
-        average_channel_power = np.empty(shape=(self.num_devices, 2))
-
-        for k in range(self.num_devices):
-            if num_received_packet[k, 0] > 0:
-                h = (2**(estimate_instant_rate[k,0]/W_SUB)-1)/power[k,0]*W_SUB*SIGMA_SQR
-                average_channel_power[k,0] = 1/self.current_step*((self.current_step-1)*average_channel_power[k,0] + h)
-            else:
-                average_channel_power[k,0] = (self.current_step-1)/self.current_step*average_channel_power[k,0]
+    def estimate_average_channel_power(self, num_sent_packet, power, allocation):
+        # for k in range(self.num_devices):
+        #     if num_sent_packet[k, 0] > 0:
+        #         sub_channel_index = allocation[k,0]
+        #         # self.estimated_channel_power[k,0] = W_SUB*SIGMA_SQR*(2**(self.rate[k,0]/W_SUB))/(power[k,0]*self.P_sum)
+        #         self.channel_power[k,0] = self.compute_h_sub(self.device_positions[k], self.h_tilde[self.current_step, 0, k, sub_channel_index])
             
-            if num_received_packet[k, 1] > 0:
-                h = (2**(estimate_instant_rate[k,1]/W_SUB)-1)/power[k,1]*W_SUB*SIGMA_SQR
-                average_channel_power[k,1] = 1/self.current_step*((self.current_step-1)*average_channel_power[k,1] + h)
-            else:
-                average_channel_power[k,1] = (self.current_step-1)/self.current_step*average_channel_power[k,1]
+        #     if num_sent_packet[k, 1] > 0:
+        #         mW_beam_index = allocation[k,1]
+        #         self.channel_power[k,1] = self.compute_h_mW(
+        #             device_position=self.device_positions[k], device_index=k, 
+        #             h_tilde=self.h_tilde[self.current_step, 1, k, mW_beam_index])
 
-        return average_channel_power
+        return self.channel_power_gain
     
     def step(self, policy_network_output):
         state = None
@@ -426,7 +405,7 @@ class WirelessEnvironmentInterfaceOnly(Env):
         num_send_packet, power, allocation = self.get_action(policy_network_output)
         num_received_packet = self.get_feedback(allocation, num_send_packet, power)
         self.average_rate = self.compute_average_rate()
-        self.average_channel_power = self.estimate_average_channel_power(num_received_packet, power)
+        self.channel_power_gain = self.estimate_average_channel_power(num_received_packet, power, allocation)
 
         reward_qos, reward_power, reward = self.get_reward(num_send_packet, num_received_packet, power)
         if np.isnan(reward) or np.isinf(reward):
@@ -436,11 +415,6 @@ class WirelessEnvironmentInterfaceOnly(Env):
         if np.any(np.isnan(state)) or np.any(np.isinf(state)):
             raise ValueError("State contains NaN or Inf values")
         observation = state.flatten()
-        
-
-        self.current_step += 1
-        if self.current_step > self.max_steps:
-            terminated = True
 
         info['Overall/ Reward'] = reward
         info['Overall/ Reward QoS'] = reward_qos
@@ -467,7 +441,14 @@ class WirelessEnvironmentInterfaceOnly(Env):
             info[f'Device {k+1}/ Packet loss rate/ mmWave'] = self.packet_loss_rate[k,1]
             info[f'Device {k+1}/ Average rate/ Sub6GHz'] = self.average_rate[k,0]
             info[f'Device {k+1}/ Average rate/ mmWave'] = self.average_rate[k,1]
+
+            info[f'Device {k+1}/ Estimated ideal power/ Sub6GHz'] = self.estimated_ideal_power[k,0]/self.P_sum
+            info[f'Device {k+1}/ Estimated ideal power/ mmWave'] = self.estimated_ideal_power[k,1]/self.P_sum
         
+    
+        self.current_step += 1
+        if self.current_step > self.max_steps:
+            terminated = True
 
         return observation, reward, terminated, truncated, info
     
@@ -488,6 +469,8 @@ class WirelessEnvironmentInterfaceOnly(Env):
         self.average_rate = self._init_rate.copy()
         self.instant_rate = self._init_rate.copy()
         self.packet_loss_rate = self._init_packet_loss_rate.copy()
+        self.estimated_ideal_power = np.zeros(shape=(self.num_devices, 2))
+        self.channel_power_gain = np.zeros(shape=(self.num_devices, 2))
 
         # LoS Path loss - mmWave
         self.LOS_PATH_LOSS = np.random.normal(0, 5.8, self.max_steps+1)
@@ -496,46 +479,45 @@ class WirelessEnvironmentInterfaceOnly(Env):
 
         return observation, info
     
-    def get_reward(self, num_send_packet, num_received_packet, power):
-        def calculate_efficiency_index(power, estimated_ideal_power, max_power=1.0):
-            return (estimated_ideal_power - power)/max_power
-        
-        def estimate_ideal_power(num_send_packet, average_channel_power, W):
-            if average_channel_power==0:
+    def get_reward(self, num_sent_packet, num_received_packet, power):        
+        def estimate_ideal_power(num_send_packet, channel_power, W):
+            if channel_power==0:
                 return self.P_sum
             
             ideal_power = (2**((num_send_packet*self.D)/(W*self.T)) - 1) * \
-                        W*SIGMA_SQR/average_channel_power
-            return ideal_power
+                        W*SIGMA_SQR/channel_power
+            return min(ideal_power, self.P_sum)
         
         reward_qos = 0
         reward_power = 0
-        fairness_value = []
+        target_power = []
+        predicted_power = []
 
         for k in range(self.num_devices):
-            prev_power_sub, prev_power_mW = self.state[k, 6], self.state[k, 7]
-            power_sub, power_mw = power[k, 0], power[k, 1]
+            power_sub, power_mw = power[k, 0], power[k, 1] # Unit: percentage
             qos_satisfaction = self.state[k, 0], self.state[k, 1]
-            packet_loss_rate_sub, packet_loss_rate_mW = self.packet_loss_rate[k,0], self.packet_loss_rate[k,1]
             
-            reward_qos += (num_received_packet[k,0] + num_received_packet[k,1])/(num_send_packet[k,0] + num_send_packet[k,1]) - (1-qos_satisfaction[0]) - (1-qos_satisfaction[1])
+            reward_qos += (num_received_packet[k,0] + num_received_packet[k,1])/(num_sent_packet[k,0] + num_sent_packet[k,1]) - (1-qos_satisfaction[0]) - (1-qos_satisfaction[1])
 
-            if num_send_packet[k,0] > 0:
-                estimated_ideal_power = estimate_ideal_power(num_send_packet[k,0], self.average_channel_power[k,0], W_SUB)
-                eff_score = calculate_efficiency_index(power_sub, estimated_ideal_power)
-                fairness_value.append(eff_score)
+            if num_sent_packet[k,0] > 0:
+                self.estimated_ideal_power[k,0] = estimate_ideal_power(num_sent_packet[k,0], self.channel_power_gain[k,0], W_SUB)
+                target_power.append(self.estimated_ideal_power[k,0])
+                predicted_power.append(power_sub)
 
-            if num_send_packet[k,1] > 0:
-                estimated_ideal_power = estimate_ideal_power(num_send_packet[k,1], self.average_channel_power[k,1], W_SUB)
-                eff_score = calculate_efficiency_index(power_sub, estimated_ideal_power)
-                fairness_value.append(eff_score)
+            if num_sent_packet[k,1] > 0:
+                self.estimated_ideal_power[k,1] = estimate_ideal_power(num_sent_packet[k,1], self.channel_power_gain[k,1], W_MW)
+                target_power.append(self.estimated_ideal_power[k,1])
+                predicted_power.append(power_mw)
 
-        fairness_value = np.array(fairness_value)
-        reward_power = np.tanh(fairness_value.mean()/fairness_value.std())*self.num_devices
+        target_power = torch.tensor(target_power)
+        predicted_power = torch.tensor(predicted_power)
+
+        target_power = softmax(target_power, dim=-1)
+        reward_power = -self.num_devices*(target_power*(target_power.log()-predicted_power.log())).sum()
         reward_qos = ((self.current_step-1)*self.reward_qos + reward_qos)/self.current_step
 
         self.reward_qos = reward_qos
-        self.instance_reward = self.reward_coef['reward_qos']*reward_qos + self.reward_coef['reward_power']*reward_power
+        self.instance_reward = self.reward_coef['reward_qos']*reward_qos
         
         return reward_qos, reward_power, self.instance_reward
     
