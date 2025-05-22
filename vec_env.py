@@ -575,7 +575,7 @@ class WirelessEnvironment(Env):
         predicted_power = torch.tensor(predicted_power)
 
         target_power = softmax(target_power, dim=-1)
-        reward_power = - self.num_devices*kl_div(predicted_power, target_power)
+        reward_power = -self.num_devices*(target_power*(target_power.log()-predicted_power.log())).sum()
         reward_qos = ((self.current_step-1)*self.reward_qos + reward_qos)/self.current_step
 
         self.reward_qos = reward_qos
