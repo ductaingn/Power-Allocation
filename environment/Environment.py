@@ -147,7 +147,7 @@ def compute_h_mW(list_of_devices, device_index, h_tilde, frame,eta=5*np.pi/180, 
     return h
 
 # gamma_sub(h,k,n) (t) is the Signal to Interference-plus-Noise Ratio (SINR) from AP to device k on subchannel n with channel coefficient h
-def gamma_sub(h,AP_index=1, p=P_SUM):
+def gamma_sub(h, p=P_SUM):
     power = h*p
     interference_plus_noise = W_SUB*SIGMA_SQR
     # for b in range(NUM_OF_AP):
@@ -158,7 +158,7 @@ def gamma_sub(h,AP_index=1, p=P_SUM):
 # gamma_mW(k,m) (t) is the Signal to Interference-plus-Noise Ratio (SINR) from AP to device k on beam m with channel coeffiction h
 
 
-def gamma_mW(h,AP_index=1, p=P_SUM):
+def gamma_mW(h, p=P_SUM):
     power = h*p
     interference_plus_noise = W_MW*SIGMA_SQR
     # for b in range(NUM_OF_AP):
@@ -169,12 +169,12 @@ def gamma_mW(h,AP_index=1, p=P_SUM):
 
 # achievable data rate r_bkf (t) for the link between
 # AP b, device k and for application f using bandwidth Wf at scheduling frame t
-def r_sub(h, device_index,power):
-    return W_SUB*np.log2(1+gamma_sub(h,power))
+def r_sub(h, power):
+    return W_SUB*np.log2(1+gamma_sub(h,p=power))
 
 
-def r_mW(h, device_index,power):
-    return W_MW*np.log2(1+gamma_mW(h,power))
+def r_mW(h, power):
+    return W_MW*np.log2(1+gamma_mW(h,p=power))
 
 
 def packet_loss_rate(t, old_packet_loss_rate, omega_kv, l_kv):

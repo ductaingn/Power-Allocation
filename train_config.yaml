@@ -11,7 +11,7 @@ env_config:
 
   reward_coef:
     reward_qos: 0
-    reward_power: 1
+    reward_power: 10
 
 seed: 1
 num_envs: 1

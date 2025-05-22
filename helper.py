@@ -29,9 +29,10 @@ class WandbLoggingCallback(WandbCallback):
         for key in keys_to_remove:
             info.pop(key, None)
         
-        # info["Loss/ Actor Loss"] = self.custom_logger
         info["Loss/ Actor Loss"] = self.custom_logger.name_to_value["train/actor_loss"]
         info["Loss/ Critic Loss"] = self.custom_logger.name_to_value["train/critic_loss"]
+        info["Loss/ Entropy Loss"] = self.custom_logger.name_to_value["train/entropy_loss"]
+        info["Overall/ Learning Rate"] = self.custom_logger.name_to_value["train/learning_rate"]
         return info
 
     def on_step(self) -> bool:

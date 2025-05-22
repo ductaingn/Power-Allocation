@@ -1,11 +1,12 @@
 import random
 import numpy as np
 import torch
-from typing import Optional
+from typing import Optional, Callable
 from stable_baselines3 import SAC, PPO, TD3, HerReplayBuffer
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.utils import get_linear_fn
 from vec_env import WirelessEnvironment
 from vec_env_interface_only import WirelessEnvironmentInterfaceOnly
 from architectures import CustomFeatureExtractor
@@ -13,6 +14,24 @@ import yaml
 from datetime import datetime
 import wandb
 from helper import WandbLoggingCallback, custom_callback
+
+def exponential_decay(initial_value: float, decay_rate: float) -> Callable[[float], float]:
+    """
+    Exponentially decays the learning rate
+
+    :param initial_value: Initial learning rate.
+    :return: schedule that computes
+      current learning rate depending on remaining progress
+    """
+    def func(progress_remaining: float) -> float:
+        """
+        Progress will decrease from 1 (beginning) to 0.
+
+        :param progress_remaining:
+        :return: current learning rate
+        """
+        return initial_value * (decay_rate ** (1 - progress_remaining))
+    return func
 
 def make_env(config, seed, algorithm):
     def _init():
@@ -56,7 +75,7 @@ class Trainer:
 
         logger = configure(folder=f"training_log/{time_now}", format_strings=["stdout","csv"])
 
-        model = SAC('MlpPolicy', envs, policy_kwargs=policy_kwargs, verbose=1, seed=self.seed, device=self.device)
+        model = SAC('MlpPolicy', envs, policy_kwargs=policy_kwargs, verbose=1, seed=self.seed, device=self.device, ent_coef="auto", gamma=0.99, tau=0.005, learning_starts=100, learning_rate=get_linear_fn(0.01, 0, 1))
         model.set_logger(logger)
 
         if algorithm == "Random":

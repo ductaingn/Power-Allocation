@@ -5,7 +5,7 @@ import pickle
 import numpy as np
 import torch
 import wandb
-from environment.Environment import r_sub as compute_rate_sub, r_mW as compute_rate_mW, G, W_SUB, W_MW, SIGMA_SQR
+from environment.Environment import r_sub as compute_rate_sub, r_mW as compute_rate_mW, G, gamma_sub, W_SUB, W_MW, SIGMA_SQR
 import random
 
 ln2 = np.log(2)
@@ -88,12 +88,12 @@ class WirelessEnvironment(Env):
         self._init_num_send_packet = np.ones(shape=(self.num_devices, 2))
         self._init_power = np.full(shape=(self.num_devices, 2), fill_value=self.P_sum/(self.num_devices*2))
         self._init_allocation = self.allocate(self._init_num_send_packet)
+        self.channel_power_gain = np.zeros(shape=(self.num_devices, 2))
         self._init_rate = self.compute_instant_rate(
             allocation=self._init_allocation,
             power=self._init_power
         )   # shape=(self.num_devices, 2)
         self.estimated_ideal_power = np.zeros(shape=(self.num_devices, 2))
-        self.estimated_average_channel_power = np.zeros(shape=(self.num_devices, 2))
         
         self.average_rate = self._init_rate
         self.previous_rate = self._init_rate.copy() # Data rate of previous time step
@@ -114,12 +114,10 @@ class WirelessEnvironment(Env):
         for k in range(self.num_devices):
             maximum_rate[0] = max(maximum_rate[0], compute_rate_sub(
                 h=1.0,
-                device_index=k,
                 power=self.P_sum
             ))
             maximum_rate[1] = max(maximum_rate[1],compute_rate_mW(
                 h=1.0,
-                device_index=k,
                 power=self.P_sum
             ))
 
@@ -385,19 +383,19 @@ class WirelessEnvironment(Env):
             sub_channel_index = allocation[k, 0]
             mW_beam_index = allocation[k, 1]
             if (sub_channel_index != -1):
-                h_sub_k = self.compute_h_sub(
+                self.channel_power_gain[k, 0] = self.compute_h_sub(
                     device_position=self.device_positions[k], 
                     h_tilde=self.h_tilde[self.current_step, 0, k, sub_channel_index]
                 )
 
                 p = power[k,0]*self.P_sum
-                rate[k,0] = compute_rate_sub(h_sub_k, device_index=k,power=p)
+                rate[k,0] = compute_rate_sub(self.channel_power_gain[k, 0], power=p)
             if (mW_beam_index != -1):
-                h_mW_k = self.compute_h_mW(
+                self.channel_power_gain[k, 1] = self.compute_h_mW(
                     device_position=self.device_positions[k], device_index=k, 
                     h_tilde=self.h_tilde[self.current_step, 1, k, mW_beam_index])
                 p = power[k,1]*self.P_sum
-                rate[k,1] = compute_rate_mW(h_mW_k, device_index=k,power=p)
+                rate[k,1] = compute_rate_mW(self.channel_power_gain[k, 1], power=p)
 
         return rate
     
@@ -421,23 +419,20 @@ class WirelessEnvironment(Env):
 
         return packet_loss_rate
     
-    def estimate_average_channel_power(self, num_received_packet, power):
-        estimate_instant_rate = self.rate
-
-        for k in range(self.num_devices):
-            if num_received_packet[k, 0] > 0:
-                h = (2**(estimate_instant_rate[k,0]/W_SUB)-1)/(power[k,0]*self.P_sum)*W_SUB*SIGMA_SQR
-                self.estimated_average_channel_power[k,0] = 1/self.current_step*((self.current_step-1)*self.estimated_average_channel_power[k,0] + h)
-            else:
-                self.estimated_average_channel_power[k,0] = (self.current_step-1)/self.current_step*self.estimated_average_channel_power[k,0]
+    def estimate_average_channel_power(self, num_sent_packet, power, allocation):
+        # for k in range(self.num_devices):
+        #     if num_sent_packet[k, 0] > 0:
+        #         sub_channel_index = allocation[k,0]
+        #         # self.estimated_channel_power[k,0] = W_SUB*SIGMA_SQR*(2**(self.rate[k,0]/W_SUB))/(power[k,0]*self.P_sum)
+        #         self.channel_power[k,0] = self.compute_h_sub(self.device_positions[k], self.h_tilde[self.current_step, 0, k, sub_channel_index])
             
-            if num_received_packet[k, 1] > 0:
-                h = (2**(estimate_instant_rate[k,1]/W_MW)-1)/(power[k,1]*self.P_sum)*W_MW*SIGMA_SQR
-                self.estimated_average_channel_power[k,1] = 1/self.current_step*((self.current_step-1)*self.estimated_average_channel_power[k,1] + h)
-            else:
-                self.estimated_average_channel_power[k,1] = (self.current_step-1)/self.current_step*self.estimated_average_channel_power[k,1]
+        #     if num_sent_packet[k, 1] > 0:
+        #         mW_beam_index = allocation[k,1]
+        #         self.channel_power[k,1] = self.compute_h_mW(
+        #             device_position=self.device_positions[k], device_index=k, 
+        #             h_tilde=self.h_tilde[self.current_step, 1, k, mW_beam_index])
 
-        return self.estimated_average_channel_power
+        return self.channel_power_gain
     
     def step(self, policy_network_output):
         state = None
@@ -449,7 +444,7 @@ class WirelessEnvironment(Env):
         num_send_packet, power, allocation = self.get_action(policy_network_output)
         num_received_packet = self.get_feedback(allocation, num_send_packet, power)
         self.average_rate = self.compute_average_rate()
-        self.estimated_average_channel_power = self.estimate_average_channel_power(num_received_packet, power)
+        self.channel_power_gain = self.estimate_average_channel_power(num_received_packet, power, allocation)
 
         reward_qos, reward_power, reward = self.get_reward(num_send_packet, num_received_packet, power)
         if np.isnan(reward) or np.isinf(reward):
@@ -494,8 +489,7 @@ class WirelessEnvironment(Env):
                 channel_power = self.compute_h_sub(
                     device_position=self.device_positions[k], 
                     h_tilde=self.h_tilde[self.current_step, 0, k, sub_channel_index])
-                info[f'Device {k+1}/ Chanel power difference/ Sub6GHz'] = \
-                    np.linalg.norm(self.estimated_average_channel_power[k,0]-channel_power)/channel_power
+                info[f'Device {k+1}/ Chanel power difference/ Sub6GHz'] = 1-np.abs(self.channel_power_gain[k,0]/channel_power)
             else:
                 info[f'Device {k+1}/ Chanel power difference/ Sub6GHz'] = 0
             
@@ -504,8 +498,7 @@ class WirelessEnvironment(Env):
                 channel_power = self.compute_h_mW(
                     device_position=self.device_positions[k], device_index=k, 
                     h_tilde=self.h_tilde[self.current_step, 1, k, mW_beam_index])
-                info[f'Device {k+1}/ Chanel power difference/ mmWave'] = \
-                    np.linalg.norm(self.estimated_average_channel_power[k,1]-channel_power)/channel_power
+                info[f'Device {k+1}/ Chanel power difference/ mmWave'] = 1-np.abs(self.channel_power_gain[k,1]/channel_power)
             else:
                 info[f'Device {k+1}/ Chanel power difference/ mmWave'] = 0
             
@@ -533,7 +526,7 @@ class WirelessEnvironment(Env):
         self.instant_rate = self._init_rate.copy()
         self.packet_loss_rate = self._init_packet_loss_rate.copy()
         self.estimated_ideal_power = np.zeros(shape=(self.num_devices, 2))
-        self.estimated_average_channel_power = np.zeros(shape=(self.num_devices, 4))
+        self.channel_power_gain = np.zeros(shape=(self.num_devices, 2))
 
         # LoS Path loss - mmWave
         self.LOS_PATH_LOSS = np.random.normal(0, 5.8, self.max_steps+1)
@@ -542,17 +535,17 @@ class WirelessEnvironment(Env):
 
         return observation, info
     
-    def get_reward(self, num_send_packet, num_received_packet, power):
+    def get_reward(self, num_sent_packet, num_received_packet, power):
         def calculate_efficiency_index(power, estimated_ideal_power, max_power=self.P_sum):
             return (estimated_ideal_power - power)/max_power
         
-        def estimate_ideal_power(num_send_packet, average_channel_power, W):
-            if average_channel_power==0:
+        def estimate_ideal_power(num_send_packet, channel_power, W):
+            if channel_power==0:
                 return self.P_sum
             
             ideal_power = (2**((num_send_packet*self.D)/(W*self.T)) - 1) * \
-                        W*SIGMA_SQR/average_channel_power
-            return ideal_power
+                        W*SIGMA_SQR/channel_power
+            return min(ideal_power, self.P_sum)
         
         reward_qos = 0
         reward_power = 0
@@ -564,20 +557,20 @@ class WirelessEnvironment(Env):
             qos_satisfaction = self.state[k, 0], self.state[k, 1]
             packet_loss_rate_sub, packet_loss_rate_mW = self.packet_loss_rate[k,0], self.packet_loss_rate[k,1]
             
-            reward_qos += (num_received_packet[k,0] + num_received_packet[k,1])/(num_send_packet[k,0] + num_send_packet[k,1]) - (1-qos_satisfaction[0]) - (1-qos_satisfaction[1])
+            reward_qos += (num_received_packet[k,0] + num_received_packet[k,1])/(num_sent_packet[k,0] + num_sent_packet[k,1]) - (1-qos_satisfaction[0]) - (1-qos_satisfaction[1])
 
-            if num_send_packet[k,0] > 0:
-                self.estimated_ideal_power[k,0] = estimate_ideal_power(num_send_packet[k,0], self.estimated_average_channel_power[k,0], W_SUB)
+            if num_sent_packet[k,0] > 0:
+                self.estimated_ideal_power[k,0] = estimate_ideal_power(num_sent_packet[k,0], self.channel_power_gain[k,0], W_SUB)
                 eff_score = calculate_efficiency_index(power_sub*self.P_sum, self.estimated_ideal_power[k,0])
                 fairness_value.append(eff_score)
 
-            if num_send_packet[k,1] > 0:
-                self.estimated_ideal_power[k,1] = estimate_ideal_power(num_send_packet[k,1], self.estimated_average_channel_power[k,1], W_MW)
+            if num_sent_packet[k,1] > 0:
+                self.estimated_ideal_power[k,1] = estimate_ideal_power(num_sent_packet[k,1], self.channel_power_gain[k,1], W_MW)
                 eff_score = calculate_efficiency_index(power_mw*self.P_sum, self.estimated_ideal_power[k,1])
                 fairness_value.append(eff_score)
 
         fairness_value = np.array(fairness_value)
-        reward_power = np.tanh(fairness_value.mean()/fairness_value.std())*self.num_devices
+        reward_power = -np.tanh(np.linalg.norm(fairness_value))*self.num_devices
         reward_qos = ((self.current_step-1)*self.reward_qos + reward_qos)/self.current_step
 
         self.reward_qos = reward_qos
