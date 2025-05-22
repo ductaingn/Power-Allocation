@@ -1,5 +1,6 @@
 import gymnasium as gym
 from gymnasium import Env
+from torch.nn.functional import kl_div, softmax
 from typing import Optional, Literal
 import pickle
 import numpy as np
@@ -549,7 +550,8 @@ class WirelessEnvironment(Env):
         
         reward_qos = 0
         reward_power = 0
-        fairness_value = []
+        target_power = []
+        predicted_power = []
 
         for k in range(self.num_devices):
             prev_power_sub, prev_power_mW = self.state[k, 6], self.state[k, 7]
@@ -561,16 +563,19 @@ class WirelessEnvironment(Env):
 
             if num_sent_packet[k,0] > 0:
                 self.estimated_ideal_power[k,0] = estimate_ideal_power(num_sent_packet[k,0], self.channel_power_gain[k,0], W_SUB)
-                eff_score = calculate_efficiency_index(power_sub*self.P_sum, self.estimated_ideal_power[k,0])
-                fairness_value.append(eff_score)
+                target_power.append(self.estimated_ideal_power[k,0])
+                predicted_power.append(power_sub)
 
             if num_sent_packet[k,1] > 0:
                 self.estimated_ideal_power[k,1] = estimate_ideal_power(num_sent_packet[k,1], self.channel_power_gain[k,1], W_MW)
-                eff_score = calculate_efficiency_index(power_mw*self.P_sum, self.estimated_ideal_power[k,1])
-                fairness_value.append(eff_score)
+                target_power.append(self.estimated_ideal_power[k,1])
+                predicted_power.append(power_mw)
 
-        fairness_value = np.array(fairness_value)
-        reward_power = -np.tanh(np.linalg.norm(fairness_value))*self.num_devices
+        target_power = torch.tensor(target_power)
+        predicted_power = torch.tensor(predicted_power)
+
+        target_power = softmax(target_power, dim=-1)
+        reward_power = - self.num_devices*kl_div(predicted_power, target_power)
         reward_qos = ((self.current_step-1)*self.reward_qos + reward_qos)/self.current_step
 
         self.reward_qos = reward_qos
