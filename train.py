@@ -4,7 +4,7 @@ import torch
 from typing import Optional, Callable
 from stable_baselines3 import SAC, PPO, TD3, HerReplayBuffer
 from stable_baselines3.common.logger import configure
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.utils import get_linear_fn
 from vec_env import WirelessEnvironment
@@ -55,7 +55,7 @@ class Trainer:
         max_steps = self.env_config['max_steps']
         algorithm = self.env_config['algorithm']            
 
-        envs = SubprocVecEnv([make_env(config=self.env_config, seed=self.seed+i, algorithm=algorithm) for i in range(self.num_envs)])
+        envs = DummyVecEnv([make_env(config=self.env_config, seed=self.seed+i, algorithm=algorithm) for i in range(self.num_envs)])
 
         policy_kwargs = dict(
             features_extractor_class = CustomFeatureExtractor,

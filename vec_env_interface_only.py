@@ -437,6 +437,7 @@ class WirelessEnvironmentInterfaceOnly(Env):
             info[f'Device {k+1}/ Power/ Sub6GHz'] = power[k,0]
             info[f'Device {k+1}/ Power/ mmWave'] = power[k,1]
 
+            info[f'Device {k+1}/ Packet loss rate/ Global'] = self.packet_loss_rate[k].sum()/2
             info[f'Device {k+1}/ Packet loss rate/ Sub6GHz'] = self.packet_loss_rate[k,0]
             info[f'Device {k+1}/ Packet loss rate/ mmWave'] = self.packet_loss_rate[k,1]
             info[f'Device {k+1}/ Average rate/ Sub6GHz'] = self.average_rate[k,0]

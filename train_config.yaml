@@ -10,7 +10,7 @@ env_config:
   algorithm: "LearnInterface" # Literal["Random", "LearnInterfaceAndPower", "LearnInterface", "WaterFilling"]
 
   reward_coef:
-    reward_qos: 10
+    reward_qos: 1
     reward_power: 10
 
 seed: 1

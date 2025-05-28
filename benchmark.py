@@ -10,10 +10,10 @@ if __name__ == "__main__":
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    num_run = 2
+    num_run = 1
 
     for runtime in range(num_run):
-        for power in range(1,5):
+        for power in range(1,6):
             for algorithm in ["Random", "LearnInterfaceAndPower", "LearnInterface"]:
                 P_sum = pow(10, power/10)*1e-3
                 
