@@ -97,13 +97,15 @@ class WirelessEnvironmentInterfaceOnly(Env):
         self.instant_rate = self._init_rate.copy() # Data rate of current time step (acknowledge after get feedback)
         self.maximum_rate = self.get_maximum_rate() # For normalizing rate to [0,1]
 
-        self.packet_loss_rate = np.zeros((self.num_devices,2)) # Accumulated Packet loss rate of current time step
+        self.packet_loss_rate = np.zeros((self.num_devices,2)) # Accumulated Packet loss rate of current time step of each device on each interface
+        self.global_packet_loss_rate = np.zeros((self.num_devices)) # Accumulated Packet loss rate of current time step of each device over all interfaces
         self._init_num_received_packet = self.get_feedback(self._init_allocation, self._init_num_send_packet, self._init_power)
-        self._init_packet_loss_rate = self.compute_packet_loss_rate(
+        self._init_packet_loss_rate, self._init_global_packet_loss_rate = self.compute_packet_loss_rate(
             self._init_num_received_packet,
             self._init_num_send_packet,
         )
         self.packet_loss_rate = self._init_packet_loss_rate.copy()
+        self.global_packet_loss_rate = self._init_global_packet_loss_rate.copy()
 
 
     def get_maximum_rate(self):
@@ -303,7 +305,7 @@ class WirelessEnvironmentInterfaceOnly(Env):
 
         num_received_packet = np.minimum(num_send_packet, l_max)
         
-        self.packet_loss_rate = self.compute_packet_loss_rate(num_received_packet, num_send_packet)
+        self.packet_loss_rate, self.global_packet_loss_rate = self.compute_packet_loss_rate(num_received_packet, num_send_packet)
 
         return num_received_packet
     
@@ -367,6 +369,7 @@ class WirelessEnvironmentInterfaceOnly(Env):
 
     def compute_packet_loss_rate(self, num_received_packet, num_send_packet):
         packet_loss_rate = np.zeros(shape=(self.num_devices, 2))
+        global_packet_loss_rate = np.zeros(shape=(self.num_devices))
         for k in range(self.num_devices):
             if num_send_packet[k,0] > 0:
                 packet_loss_rate[k,0] = 1/self.current_step*(self.packet_loss_rate[k,0]*(self.current_step-1) + (1 - num_received_packet[k,0]/num_send_packet[k,0]))
@@ -378,7 +381,9 @@ class WirelessEnvironmentInterfaceOnly(Env):
             else:
                 packet_loss_rate[k,1] = 1/self.current_step*(self.packet_loss_rate[k,1]*(self.current_step-1))
 
-        return packet_loss_rate
+            global_packet_loss_rate[k] = 1/self.current_step*(self.global_packet_loss_rate[k]*(self.current_step-1) + (1 - (num_received_packet[k,0] + num_received_packet[k,1])/(num_send_packet[k,0] + num_send_packet[k,1])))
+
+        return packet_loss_rate, global_packet_loss_rate
     
     def estimate_average_channel_power(self, num_sent_packet, power, allocation):
         # for k in range(self.num_devices):
@@ -437,7 +442,7 @@ class WirelessEnvironmentInterfaceOnly(Env):
             info[f'Device {k+1}/ Power/ Sub6GHz'] = power[k,0]
             info[f'Device {k+1}/ Power/ mmWave'] = power[k,1]
 
-            info[f'Device {k+1}/ Packet loss rate/ Global'] = self.packet_loss_rate[k].sum()/2
+            info[f'Device {k+1}/ Packet loss rate/ Global'] = self.global_packet_loss_rate[k]
             info[f'Device {k+1}/ Packet loss rate/ Sub6GHz'] = self.packet_loss_rate[k,0]
             info[f'Device {k+1}/ Packet loss rate/ mmWave'] = self.packet_loss_rate[k,1]
             info[f'Device {k+1}/ Average rate/ Sub6GHz'] = self.average_rate[k,0]
@@ -470,6 +475,7 @@ class WirelessEnvironmentInterfaceOnly(Env):
         self.average_rate = self._init_rate.copy()
         self.instant_rate = self._init_rate.copy()
         self.packet_loss_rate = self._init_packet_loss_rate.copy()
+        self.global_packet_loss_rate = self._init_global_packet_loss_rate.copy()
         self.estimated_ideal_power = np.zeros(shape=(self.num_devices, 2))
         self.channel_power_gain = np.zeros(shape=(self.num_devices, 2))
 

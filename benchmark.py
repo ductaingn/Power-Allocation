@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
     for runtime in range(num_run):
         for power in range(1,6):
-            for algorithm in ["Random", "LearnInterfaceAndPower", "LearnInterface"]:
+            for algorithm in ["Random", "LearnInterfaceAndPower", "LearnInterface", "RAQL"]:
                 P_sum = pow(10, power/10)*1e-3
                 
                 train_configs['env_config']['P_sum'] = P_sum
