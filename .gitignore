@@ -5,3 +5,4 @@ test.ipynb
 wandb
 sb3_trained_weight
 training_log
+debug.py

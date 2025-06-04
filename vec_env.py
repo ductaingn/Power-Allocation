@@ -268,8 +268,8 @@ class WirelessEnvironment(Env):
         power = power.reshape(self.num_devices, 2)
 
         for k in range(self.num_devices):
-            if number_of_send_packet[k,0] + number_of_send_packet[k,1] == 0: # Force to send at least one packet on more powerful channel
-                if power[k,0] > power[k,1]:
+            if number_of_send_packet[k,0] + number_of_send_packet[k,1] == 0: # Force to send at least one packet on more reliable channel
+                if self.packet_loss_rate[k,0] < self.packet_loss_rate[k,1]:
                     number_of_send_packet[k,0] = 1
                 else:
                     number_of_send_packet[k,1] = 1

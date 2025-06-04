@@ -9,6 +9,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.utils import get_linear_fn
 from vec_env import WirelessEnvironment
 from vec_env_interface_only import WirelessEnvironmentInterfaceOnly
+from vec_env_raql import WirelessEnvironmentRiskAverseQLearning
 from architectures import CustomFeatureExtractor
 import yaml
 from datetime import datetime
@@ -37,6 +38,8 @@ def make_env(config, seed, algorithm):
     def _init():
         if algorithm == "LearnInterface":
             return WirelessEnvironmentInterfaceOnly(**config, seed=seed)
+        elif algorithm == "RAQL":
+            return WirelessEnvironmentRiskAverseQLearning(**config, seed=seed)
         else:
             return WirelessEnvironment(**config, seed=seed)
     return _init
@@ -79,6 +82,10 @@ class Trainer:
         model.set_logger(logger)
 
         if algorithm == "Random":
+            evaluate_policy(model, envs, n_eval_episodes=1, callback=custom_callback)
+        elif algorithm == "RAQL":
+            model = SAC('MlpPolicy', envs, verbose=1, seed=self.seed, device=self.device, ent_coef="auto", gamma=0.99, tau=0.005, learning_starts=100, learning_rate=get_linear_fn(0.01, 0, 1))
+            model.set_logger(logger)
             evaluate_policy(model, envs, n_eval_episodes=1, callback=custom_callback)
         else:
             model.learn(total_timesteps=max_steps*self.num_envs*self.num_episodes_per_env, progress_bar=True, log_interval=1, callback=WandbLoggingCallback(logger))
