@@ -12,7 +12,7 @@ import random
 ln2 = np.log(2)
 
 class WirelessEnvironment(Env):
-    def __init__(self, h_tilde_path: str, devices_positions_path: str, L_max: int, T: int, D: int, qos_threshold: float, P_sum, max_steps: int, reward_coef:dict, seed: Optional[int] = None, algorithm: Optional[Literal["Random", "LearnInterfaceAndPower", "WaterFilling"]] = "LearnInterfaceAndPower"):
+    def __init__(self, h_tilde_path: str, devices_positions_path: str, num_devices:int, L_max: int, T: int, D: int, qos_threshold: float, P_sum, max_steps: int, reward_coef:dict, seed: Optional[int] = None, algorithm: Optional[Literal["Random", "LearnInterfaceAndPower", "WaterFilling"]] = "LearnInterfaceAndPower"):
         super(WirelessEnvironment, self).__init__()
         self.load_h_tilde(h_tilde_path)
         self.load_device_positions(devices_positions_path)
@@ -22,7 +22,7 @@ class WirelessEnvironment(Env):
         self.qos_threshold = qos_threshold
         self.P_sum = P_sum
 
-        self.num_devices = self.device_positions.shape[0]
+        self.num_devices = num_devices
         self.num_sub_channel = self.h_tilde.shape[-1]
         self.num_beam = self.h_tilde.shape[-1]
         
@@ -368,7 +368,7 @@ class WirelessEnvironment(Env):
             return 72 + 29.2*(np.log10(distance))+X
         
         # device blocked by obstacle
-        if (device_index == 1 or device_index == 5):
+        if (device_index in [1,5,10,13]):
             path_loss = path_loss_mW_nlos(distance=np.linalg.norm(device_position))
             epsilon = 0.005 # side lobe beam gain
             h = G()*pow(10, -path_loss/10)*epsilon # G_Rx^k=epsilon

@@ -65,7 +65,7 @@ class Trainer:
             features_extractor_kwargs = dict(
                 state_dim=8,
                 latent_dim=256,
-                num_devices=10,
+                num_devices=self.env_config['num_devices'],
             )
         )
 
@@ -83,6 +83,7 @@ class Trainer:
 
         if algorithm == "Random":
             evaluate_policy(model, envs, n_eval_episodes=1, callback=custom_callback)
+            model.save(f'sb3_trained_weight/sac_model/{time_now}')
         elif algorithm == "RAQL":
             model = SAC('MlpPolicy', envs, verbose=1, seed=self.seed, device=self.device, ent_coef="auto", gamma=0.99, tau=0.005, learning_starts=100, learning_rate=get_linear_fn(0.01, 0, 1))
             model.set_logger(logger)

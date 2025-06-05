@@ -47,30 +47,26 @@ def distance_to_AP(pos_of_device):
 # initialize device's postion with random value
 # after initializing any device's position, check the distance from that device to the nearest AP,
 # if the distance is satisfied, store it into the array list_of_devices.
-def initialize_devices_pos():
-    list_of_devices = []
-    device_pos = [[-45,40],[10,-70],[-25,-20],[-40,15],[60,55],[45,5],[50,-40]]
-    for i in range (NUM_OF_DEVICE):
-        # Distance from Device #1 to AP and Device #2 to AP is equal
-        if(i==0):
-            x = 0
-            y = 20
-        elif(i==1):
-            x = 20
-            y = 0
+def generate_devices_positions(num_of_device=NUM_OF_DEVICE):
+    device_positions = [
+        [0, 20],     # Device 1
+        [20, 0],     # Device 2 (Blocked by obstacle)
+        [-85, -80],  # Device 3
+        [-45, 40],   # Device 4
+        [10, -70],   # Device 5
+        [-40, -20],  # Device 6 (Blocked by obstacle)
+        [-40, 15],   # Device 7
+        [60, 55],    # Device 8
+        [45, 5],     # Device 9
+        [50, -40],   # Device 10
+        [40, 60],    # Device 11 (Blocked by obstacle)
+        [-20, -60],  # Device 12
+        [-20, 80],   # Device 13
+        [20, -40],   # Device 14 (Blocked by obstacle)
+        [-80, 80]    # Device 15        
+    ]
         
-        # Distance from Device #3 to AP is greater than from Device #1 and #2 
-        elif(i==2):
-            x = -85
-            y = -80
-
-        else:
-            x = device_pos[i-3][0]
-            y = device_pos[i-3][1]
-
-        list_of_devices.append((x,y))
-    return list_of_devices
-
+    return device_positions[:num_of_device]
 
 # Path loss model
 def path_loss_sub(distance):
@@ -106,7 +102,7 @@ def generate_h_tilde_device_chanel(mu:float, sigma:float, amount:int)->np.ndarra
         h_tilde.append(complex(re[i], im[i])/np.sqrt(2))
     return np.array(h_tilde)
 
-def generate_h_tilde(num_timestep:int, num_device:int, num_subchannel:int, num_beam:int, mu:float, sigma:float, save:bool=True, save_path:str='environment/h_tilde.pickle')->np.ndarray:
+def generate_h_tilde(num_timestep:int, num_device:int, num_subchannel:int, num_beam:int, mu:float=0, sigma:float=1, save:bool=True, save_path:str='environment/scenario_1/h_tilde.pickle')->np.ndarray:
     h_tilde = []
     for k in range(num_device):
         h_tilde_k_sub, h_tilde_k_mw = [], []
@@ -136,7 +132,7 @@ def compute_h_sub(list_of_devices, device_index, h_tilde):
 def compute_h_mW(list_of_devices, device_index, h_tilde, frame,eta=5*np.pi/180, beta=0):
     h = 0
     # device blocked by obstacle
-    if (device_index == 1 or device_index == 5):
+    if (device_index in [1,5,10,13]):
         path_loss = path_loss_mW_nlos(distance_to_AP(list_of_devices[device_index]),frame)
         h = np.abs(G(eta, beta)*h_tilde* pow(10, -path_loss/20)*0.01)**2  # G_Rx^k=epsilon
     # device not blocked
