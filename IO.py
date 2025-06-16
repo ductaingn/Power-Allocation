@@ -1,23 +1,30 @@
 import numpy as np
-import Enviroment as env
+import environment.Environment as env
 import matplotlib
 import matplotlib.pyplot as plt
 import pickle
+import yaml
 
-def save(data,file_name):
-    name = './result/'+file_name+'.pickle'
+def save(data,file_path):
+    name = file_path
     file = open(name,'wb')
     pickle.dump(data,file)
-    print(f"Saved {file_name}!")
+    print(f"Saved {file_path}!")
             
-def load(file_name):
-    name = './result/'+file_name+'.pickle'
+def load(file_path):
+    name = file_path
     file = open(name,'rb')
     res = pickle.load(file)
     return res
 
-def load_positions():
-    return pickle.load(open('/home/nguyen/Projects/Group ICN/Topic 2/Source Code/result/device_positions.pickle','rb'))
+def load_positions(process='train'):
+    with open('config.yaml','rt') as file:
+        config = yaml.safe_load(file)
+    path = config[process]['environment']['devices_positions_path']
+    return pickle.load(open(path,'rb'))
 
-def load_h_tilde():
-    return pickle.load(open('/home/nguyen/Projects/Group ICN/Topic 2/Source Code/result/h_tilde.pickle','rb'))
+def load_h_tilde(process='train'):
+    with open('config.yaml','rt') as file:
+        config = yaml.safe_load(file)
+    path = config[process]['environment']['h_tilde_path']
+    return pickle.load(open(path,'rb'))
