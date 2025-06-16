@@ -3,6 +3,7 @@ from stable_baselines3.common.logger import Logger
 from wandb.integration.sb3 import WandbCallback
 from typing import Optional, Literal
 import wandb
+import pandas as pd
 
 class WandbLoggingCallback(WandbCallback):
     def __init__(        
@@ -63,3 +64,33 @@ def custom_callback(locals, globals):
             log = _pre_process_log(info)
             wandb.log(log, commit=True)
     return True
+
+def get_log_from_wandb(run_id:str, run_name:str=None, entity:str="ductaingn-015203-none", project="PowerAllocation", return_run:bool=False) -> pd.DataFrame:
+    api = wandb.Api()
+    if run_name:
+        run = api.runs(f"{entity}/{project}", filters={"displayName": run_name})
+        if len(run) == 0:
+            raise ValueError(f"Run with name {run_name} not found in project {project} for entity {entity}.")
+        if len(run) > 1:
+            raise ValueError(f"Multiple runs found with name {run_name} in project {project} for entity {entity}. Please specify a unique run name.")
+
+        run_id = run[0].id
+
+    run = wandb.Api().run(f"{entity}/{project}/{run_id}")
+    records = []
+    for row in run.scan_history():  # no keys passed = get all keys
+        records.append(row)
+    history = pd.DataFrame(records)
+    if run.config['algorithm'] == "Random":
+        history['Algorithm'] = "Random"
+    elif run.config['algorithm'] == "RAQL":
+        history['Algorithm'] = "RAQL"
+    elif run.config['algorithm'] == "LearnInterface":
+        history['Algorithm'] = "SACPF" 
+    elif run.config['algorithm'] == "LearnInterfaceAndPower":
+        history['Algorithm'] = "SACPA" 
+    
+    if return_run:
+        return history, run
+    else:
+        return history

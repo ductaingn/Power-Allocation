@@ -5,29 +5,6 @@ import environment.Environment as env
 import pandas as pd
 
 def plot_packet_loss_rate(device=1):
-    # received = IO.load('number_of_received_packet')
-    # sent = IO.load('number_of_sent_packet')
-    # device-=1
-    # received_device_sub, received_device_mW = 0,0
-    # sent_device_sub, sent_device_mW = 0,0
-    # plrsub = []
-    # plrmw = []
-    # for i in range(len(sent)):
-    #     received_device_sub += received[i][device][0]
-    #     received_device_mW += received[i][device][1]
-
-    #     sent_device_sub += sent[i][device][0]
-    #     sent_device_mW += sent[i][device][1]
-        
-    #     plrsub.append(1-received_device_sub/sent_device_sub)
-    #     plrmw.append(1-received_device_mW/sent_device_mW)
-
-    # plt.plot(plrsub,label='sub')
-    # plt.plot(plrmw,label='mw')
-    # plt.legend()
-    # device+=1
-    # plt.title(f'Packet loss rate of device {device}')
-    # plt.show()
 
     received = IO.load('number_of_received_packet')
     sent = IO.load('number_of_sent_packet')
