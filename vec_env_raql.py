@@ -232,7 +232,6 @@ class QTable(Table):
         self.table = defaultdict(lambda: defaultdict(lambda: self.default_value), data['table'])
         self.best_action_cache = data['best_action_cache']
 
-
 class VTable(Table):
     def __init__(self, default_value = 0):
         super().__init__(default_value)
@@ -275,7 +274,6 @@ class AlphaTable(Table):
             data = pickle.load(f)
         self.default_value = data['default_value']
         self.table = defaultdict(lambda: defaultdict(lambda: self.default_value), data['table'])
-
 
 class WirelessEnvironmentRiskAverseQLearning(Env):
     def __init__(self, h_tilde_path: str, devices_positions_path: str, num_devices:int, L_max: int, T: int, D: int, qos_threshold: float, P_sum, max_steps: int, reward_coef:dict, seed: Optional[int] = None, algorithm: Optional[Literal["RAQL"]] = "RAQL"):
@@ -366,13 +364,15 @@ class WirelessEnvironmentRiskAverseQLearning(Env):
 
         self.packet_loss_rate = np.zeros((self.num_devices,2)) # Accumulated Packet loss rate of current time step of each device on each interface
         self.global_packet_loss_rate = np.zeros((self.num_devices)) # Accumulated Packet loss rate of current time step of each device over all interfaces
+        self.sum_packet_loss_rate = 0 # Accumulated Packet loss rate of current time step of the whole system over all interfaces
         self._init_num_received_packet = self.get_feedback(self._init_allocation, self._init_num_send_packet, self._init_power)
-        self._init_packet_loss_rate, self._init_global_packet_loss_rate = self.compute_packet_loss_rate(
+        self._init_packet_loss_rate, self._init_global_packet_loss_rate, self._init_sum_packet_loss_rate = self.compute_packet_loss_rate(
             self._init_num_received_packet,
             self._init_num_send_packet,
         )
         self.packet_loss_rate = self._init_packet_loss_rate.copy()
         self.global_packet_loss_rate = self._init_global_packet_loss_rate.copy()
+        self.sum_packet_loss_rate = self._init_sum_packet_loss_rate
 
 
     def get_maximum_rate(self):
@@ -563,7 +563,7 @@ class WirelessEnvironmentRiskAverseQLearning(Env):
 
         return average_rate
 
-    def compute_packet_loss_rate(self, num_received_packet, num_send_packet):
+    def compute_packet_loss_rate(self, num_received_packet:np.ndarray, num_send_packet:np.ndarray):
         packet_loss_rate = np.zeros(shape=(self.num_devices, 2))
         global_packet_loss_rate = np.zeros(shape=(self.num_devices))
         for k in range(self.num_devices):
@@ -579,7 +579,9 @@ class WirelessEnvironmentRiskAverseQLearning(Env):
 
             global_packet_loss_rate[k] = 1/self.current_step*(self.global_packet_loss_rate[k]*(self.current_step-1) + (1 - (num_received_packet[k,0] + num_received_packet[k,1])/(num_send_packet[k,0] + num_send_packet[k,1])))
 
-        return packet_loss_rate, global_packet_loss_rate
+        sum_packet_loss_rate = 1/self.current_step*(self.sum_packet_loss_rate*(self.current_step-1) + (1-num_received_packet.sum()/num_send_packet.sum()))
+
+        return packet_loss_rate, global_packet_loss_rate, sum_packet_loss_rate
     
     def u(self, x):
         u = -np.exp(self.beta*x)
@@ -658,7 +660,7 @@ class WirelessEnvironmentRiskAverseQLearning(Env):
 
         info['Overall/ Reward'] = reward
         info['Overall/ Reward QoS'] = reward_qos
-        info['Overall/ Sum Packet loss rate'] = self.packet_loss_rate.sum()/(self.num_devices*2)
+        info['Overall/ Sum Packet loss rate'] = self.sum_packet_loss_rate
         info['Overall/ Average rate/ Sub6GHz'] = self.average_rate[:,0].sum()/(self.num_devices)
         info['Overall/ Average rate/ mmWave'] = self.average_rate[:,1].sum()/(self.num_devices)
         info['Overall/ Power usage'] = power.sum()
@@ -709,6 +711,7 @@ class WirelessEnvironmentRiskAverseQLearning(Env):
         self.instant_rate = self._init_rate.copy()
         self.packet_loss_rate = self._init_packet_loss_rate.copy()
         self.global_packet_loss_rate = self._init_global_packet_loss_rate.copy()
+        self.sum_packet_loss_rate = self._init_sum_packet_loss_rate
         self.estimated_ideal_power = np.zeros(shape=(self.num_devices, 2))
         self.channel_power_gain = np.zeros(shape=(self.num_devices, 2))
 
