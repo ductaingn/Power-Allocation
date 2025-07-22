@@ -2,7 +2,7 @@ import random
 import numpy as np
 import torch
 from typing import Optional, Callable
-from stable_baselines3 import SAC, PPO, TD3, HerReplayBuffer
+from stable_baselines3 import SAC
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy

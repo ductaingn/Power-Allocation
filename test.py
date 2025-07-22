@@ -1,4 +1,4 @@
-from stable_baselines3 import SAC, PPO, TD3
+from stable_baselines3 import SAC
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.logger import configure
 from vec_env import WirelessEnvironment
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     wandb.init(project='PowerAllocation', config=wandb_config)
 
     model_path = "/home/nguyen/Projects/Group ICN/Power Allocation/Source Code/sb3_trained_weight/td3_model/SB3-2025-04-10-14-29-54.zip"
-    model = TD3.load(model_path)
+    model = SAC.load(model_path)
     model.set_parameters(model_path)
 
     logger = configure(folder=f"training_log/{time_now}", format_strings=["stdout","csv"])
