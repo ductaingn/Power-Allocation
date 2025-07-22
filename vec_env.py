@@ -347,7 +347,7 @@ class WirelessEnvironment(Env):
 
         num_received_packet = np.minimum(num_send_packet, l_max)
         
-        self.packet_loss_rate, self.global_packet_loss_rate = self.compute_packet_loss_rate(num_received_packet, num_send_packet)
+        self.packet_loss_rate, self.global_packet_loss_rate, self.sum_packet_loss_rate = self.compute_packet_loss_rate(num_received_packet, num_send_packet)
 
         return num_received_packet
     
