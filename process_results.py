@@ -25,16 +25,16 @@ def plot_interface_usage(history_df:pd.DataFrame, num_devices:int, title:str = N
     bar_width = 0.35
 
     # Sub6 bars
-    ax.bar(x - bar_width/2, num_received_packet[:,0], bar_width, label='Thành công trên Sub-6GHz', color='blue', hatch='/', edgecolor='k')
-    ax.bar(x - bar_width/2, num_droped_packet[:,0], bar_width, bottom=num_received_packet[:,0], label='Không thành công', color='red')
+    ax.bar(x - bar_width/2, num_received_packet[:,0], bar_width, label='Successfully received on Sub-6GHz', color='blue', hatch='/', edgecolor='k')
+    ax.bar(x - bar_width/2, num_droped_packet[:,0], bar_width, bottom=num_received_packet[:,0], label='Dropped packet', color='red')
 
     # mmWave bars
-    ax.bar(x + bar_width/2, num_received_packet[:,1], bar_width, label='Thành công trên mmWave', color='green', hatch='\\', edgecolor='k')
-    ax.bar(x + bar_width/2, num_droped_packet[:,1], bar_width, bottom=num_received_packet[:,1], label='Không thành công', color='red')
+    ax.bar(x + bar_width/2, num_received_packet[:,1], bar_width, label='Successfully received on mmWave', color='green', hatch='\\', edgecolor='k')
+    ax.bar(x + bar_width/2, num_droped_packet[:,1], bar_width, bottom=num_received_packet[:,1], label='Dropped packet', color='red')
 
     # Labels and formatting
-    ax.set_xlabel('Thiết bị')
-    ax.set_ylabel('Số gói tin')
+    ax.set_xlabel('Device')
+    ax.set_ylabel('Number of packet')
     if title:
         ax.set_title(title)
     ax.set_xticks(x)
@@ -47,7 +47,7 @@ def plot_interface_usage(history_df:pd.DataFrame, num_devices:int, title:str = N
     drop_patch = plt.Rectangle((0, 0), 1, 1, fc='red')
     ax.legend(
         [sub6_patch, mmwave_patch, drop_patch],
-        ['Gói tin gửi thành công trên Sub-6GHz', 'Gói tin gửi thành công trên mmWave', 'Gói tin mất mát'],
+        ['Successfully received on Sub-6GHz', 'Successfully received on mmWave', 'Dropped packet'],
         bbox_to_anchor=(0., 1.02, 1., .102), 
         loc='lower left',
         ncols=1, 
@@ -59,12 +59,14 @@ def plot_interface_usage(history_df:pd.DataFrame, num_devices:int, title:str = N
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, bbox_inches='tight', format='pdf')
-        print(f"Plot saved to {save_path}")
-
+        try:
+            plt.savefig(save_path, bbox_inches='tight', format='pdf')
+            print(f"Plot saved to {save_path}")
+        except Exception as e:
+            print(f"Error occur while saving {save_path}: {e}")
     plt.show()
 
-def get_result_table(history_dfs:list[pd.DataFrame], num_devices:int) -> pd.DataFrame:
+def get_result_table(history_dfs:list[pd.DataFrame], num_devices:int, save_path:str = None) -> pd.DataFrame:
     """
     Generate a summary table from the history DataFrame.
     Args:
@@ -95,5 +97,13 @@ def get_result_table(history_dfs:list[pd.DataFrame], num_devices:int) -> pd.Data
         ]
         delta_rho = sum([0.1 - plr[i] for i in range(num_devices)])/num_devices
         result_df.loc[len(result_df)] = [algorithm, reward, avg_suc] + plr + [delta_rho]
+
+    result_df = result_df.transpose()
+    if save_path:
+        try:
+            result_df.to_csv(save_path)
+            print(f"Plot saved to {save_path}")
+        except Exception as e:
+            print(f"Error occur while saving {save_path}: {e}")
 
     return result_df
