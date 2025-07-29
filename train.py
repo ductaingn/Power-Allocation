@@ -7,7 +7,8 @@ from stable_baselines3.common.logger import configure
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.utils import get_linear_fn
-from vec_env import WirelessEnvironment
+# from vec_env import WirelessEnvironment
+from environment.gym_env.wireless_env_sacpa import WirelessEnvironmentSACPA
 from vec_env_interface_only import WirelessEnvironmentInterfaceOnly
 from vec_env_raql import WirelessEnvironmentRiskAverseQLearning
 from architectures import CustomFeatureExtractor
@@ -36,12 +37,12 @@ def exponential_decay(initial_value: float, decay_rate: float) -> Callable[[floa
 
 def make_env(config, seed, algorithm):
     def _init():
-        if algorithm == "LearnInterface":
+        if algorithm == "SACPF":
             return WirelessEnvironmentInterfaceOnly(**config, seed=seed)
         elif algorithm == "RAQL":
             return WirelessEnvironmentRiskAverseQLearning(**config, seed=seed)
         else:
-            return WirelessEnvironment(**config, seed=seed)
+            return WirelessEnvironmentSACPA(**config, seed=seed)
     return _init
 
 class Trainer:

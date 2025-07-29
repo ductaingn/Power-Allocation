@@ -6,7 +6,7 @@ import pickle
 import numpy as np
 import torch
 import wandb
-from environment.Environment import r_sub as compute_rate_sub, r_mW as compute_rate_mW, G, gamma_sub, W_SUB, W_MW, SIGMA_SQR
+from environment.gym_env.Environment import r_sub as compute_rate_sub, r_mW as compute_rate_mW, G, gamma_sub, W_SUB, W_MW, SIGMA_SQR
 import random
 
 ln2 = np.log(2)
@@ -465,36 +465,8 @@ class WirelessEnvironment(Env):
             raise ValueError("State contains NaN or Inf values")
         observation = state.flatten()
 
-        info['Overall/ Reward'] = reward
-        info['Overall/ Reward QoS'] = reward_qos
-        info['Overall/ Reward Power'] = reward_power
-        info['Overall/ Sum Packet loss rate'] = self.sum_packet_loss_rate
-        info['Overall/ Average rate/ Sub6GHz'] = self.average_rate[:,0].sum()/(self.num_devices)
-        info['Overall/ Average rate/ mmWave'] = self.average_rate[:,1].sum()/(self.num_devices)
-        info['Overall/ Power usage'] = power.sum()
-        
-        for k in range(self.num_devices):
-            info[f'Device {k+1}/ Num. Sent packet/ Sub6GHz'] = num_send_packet[k,0]
-            info[f'Device {k+1}/ Num. Sent packet/ mmWave'] = num_send_packet[k,1]
+        info = self.get_info()
 
-            info[f'Device {k+1}/ Num. Received packet/ Sub6GHz'] = num_received_packet[k,0]
-            info[f'Device {k+1}/ Num. Received packet/ mmWave'] = num_received_packet[k,1]
-            
-            info[f'Device {k+1}/ Num. Droped packet/ Sub6GHz'] = num_send_packet[k,0] - num_received_packet[k,0]
-            info[f'Device {k+1}/ Num. Droped packet/ mmWave'] = num_send_packet[k,1] - num_received_packet[k,1]
-
-            info[f'Device {k+1}/ Power/ Sub6GHz'] = power[k,0]
-            info[f'Device {k+1}/ Power/ mmWave'] = power[k,1]
-
-            info[f'Device {k+1}/ Packet loss rate/ Global'] = self.global_packet_loss_rate[k]
-            info[f'Device {k+1}/ Packet loss rate/ Sub6GHz'] = self.packet_loss_rate[k,0]
-            info[f'Device {k+1}/ Packet loss rate/ mmWave'] = self.packet_loss_rate[k,1]
-            info[f'Device {k+1}/ Average rate/ Sub6GHz'] = self.average_rate[k,0]
-            info[f'Device {k+1}/ Average rate/ mmWave'] = self.average_rate[k,1]
-
-            info[f'Device {k+1}/ Estimated ideal power/ Sub6GHz'] = self.estimated_ideal_power[k,0]/self.P_sum
-            info[f'Device {k+1}/ Estimated ideal power/ mmWave'] = self.estimated_ideal_power[k,1]/self.P_sum
-            
         self.current_step += 1
         if self.current_step > self.max_steps:
             terminated = True
@@ -507,10 +479,7 @@ class WirelessEnvironment(Env):
         state = None
         info = {}
         self.current_step = 0
-        self.state = np.zeros(shape=(self.num_devices, 8))
-        state = self.state
-        observation = state.flatten()
-        self.action = np.zeros(shape=(self.num_devices, 4))
+        observation = self.state.flatten()
         self.instance_reward = 0.0
         self.reward_qos = 0.0
         self.current_step = 1

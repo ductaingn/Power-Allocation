@@ -1,5 +1,5 @@
 import numpy as np
-import environment.Environment as env
+import environment.gym_env.Environment as env
 import matplotlib
 import matplotlib.pyplot as plt
 import pickle

@@ -6,7 +6,7 @@ import pickle
 import numpy as np
 import torch
 import wandb
-from environment.Environment import r_sub as compute_rate_sub, r_mW as compute_rate_mW, G, W_SUB, W_MW, SIGMA_SQR
+from environment.gym_env.Environment import r_sub as compute_rate_sub, r_mW as compute_rate_mW, G, W_SUB, W_MW, SIGMA_SQR
 import random
 
 ln2 = np.log(2)

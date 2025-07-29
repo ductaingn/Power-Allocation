@@ -1,7 +1,7 @@
 '''
 Archive 
 '''
-import environment.Environment as env
+import environment.gym_env.Environment as env
 import IO
 import numpy as np
 import matplotlib.pyplot as plt
