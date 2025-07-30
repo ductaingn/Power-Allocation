@@ -56,7 +56,7 @@ class Trainer:
         self.seed = train_configs.get('seed', 1)
 
         if torch.cuda.is_available():
-            self.device = torch.cuda.get_device_name(0)
+            self.device = "cuda:0"
         else:
             self.device = 'cpu'                
 
