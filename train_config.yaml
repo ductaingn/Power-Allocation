@@ -18,3 +18,5 @@ seed: 1
 num_envs: 1
 num_episodes_per_env: 1
 learning_rate: 1e-2
+wandb:
+  propject: "PowerAllocation"

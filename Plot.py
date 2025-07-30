@@ -1,5 +1,5 @@
 import numpy as np
-import IO
+import utils.IO as IO
 import matplotlib.pyplot as plt
 import environment.gym_env.Environment as env
 import pandas as pd

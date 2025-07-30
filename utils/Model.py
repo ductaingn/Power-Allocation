@@ -2,7 +2,7 @@
 Archive 
 '''
 import environment.gym_env.Environment as env
-import IO
+import utils.IO as IO
 import numpy as np
 import matplotlib.pyplot as plt
 import time

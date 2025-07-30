@@ -9,7 +9,7 @@ import os
 import wandb
 import random
 import torch
-from helper import WandbLoggingCallback
+from utils.logger import WandbLoggingCallback
 from datetime import datetime
 
 os.environ["QT_QPA_PLATFORM"] = "offscreens"

@@ -8,7 +8,7 @@ import numpy as np
 from typing import Optional
 import attrs
 
-class WirelessEnvironmentSACPA(WirelessEnvironmentBase):
+class WirelessEnvironmentRandom(WirelessEnvironmentBase):
     def __attrs_post_init__(self):
         super().__attrs_post_init__()
 

@@ -7,15 +7,15 @@ from stable_baselines3.common.logger import configure
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.utils import get_linear_fn
-# from vec_env import WirelessEnvironment
 from environment.gym_env.wireless_env_sacpa import WirelessEnvironmentSACPA
-from vec_env_interface_only import WirelessEnvironmentInterfaceOnly
-from vec_env_raql import WirelessEnvironmentRiskAverseQLearning
+from environment.gym_env.wireless_env_sacpf import WirelessEnvironmentSACPF
+from environment.gym_env.wireless_env_raql import WirelessEnvironmentRAQL
+from environment.gym_env.wireless_env_random import WirelessEnvironmentRandom
 from architectures import CustomFeatureExtractor
 import yaml
 from datetime import datetime
 import wandb
-from helper import WandbLoggingCallback, custom_callback
+from utils.logger import WandbLoggingCallback, custom_callback
 
 def exponential_decay(initial_value: float, decay_rate: float) -> Callable[[float], float]:
     """
@@ -37,12 +37,14 @@ def exponential_decay(initial_value: float, decay_rate: float) -> Callable[[floa
 
 def make_env(config, seed, algorithm):
     def _init():
-        if algorithm == "SACPF":
-            return WirelessEnvironmentInterfaceOnly(**config, seed=seed)
-        elif algorithm == "RAQL":
-            return WirelessEnvironmentRiskAverseQLearning(**config, seed=seed)
-        else:
+        if algorithm == "SACPA":
             return WirelessEnvironmentSACPA(**config, seed=seed)
+        elif algorithm == "SACPF":
+            return WirelessEnvironmentSACPF(**config, seed=seed)
+        elif algorithm == "RAQL":
+            return WirelessEnvironmentRAQL(**config, seed=seed)
+        elif algorithm == "Random":
+            return WirelessEnvironmentRandom(**config, seed=seed)
     return _init
 
 class Trainer:
@@ -73,9 +75,8 @@ class Trainer:
         time_now = datetime.now().strftime("SB3-%Y-%m-%d-%H-%M-%S")
 
         wandb_config = self.train_configs.copy()
-        wandb_config["algorithm"] = algorithm
 
-        wandb.init(project='PowerAllocation', config=wandb_config, name=run_name)
+        wandb.init(project=self.train_configs['wandb']['project'], config=wandb_config, name=run_name)
 
         logger = configure(folder=f"training_log/{time_now}", format_strings=["stdout","csv"])
 
@@ -84,14 +85,14 @@ class Trainer:
 
         if algorithm == "Random":
             evaluate_policy(model, envs, n_eval_episodes=1, callback=custom_callback)
-            model.save(f'sb3_trained_weight/sac_model/{time_now}')
+            model.save(f'sb3_trained_weight/{algorithm}/{time_now}')
         elif algorithm == "RAQL":
             model = SAC('MlpPolicy', envs, verbose=1, seed=self.seed, device=self.device, ent_coef="auto", gamma=0.99, tau=0.005, learning_starts=100, learning_rate=get_linear_fn(0.01, 0, 1))
             model.set_logger(logger)
             evaluate_policy(model, envs, n_eval_episodes=1, callback=custom_callback)
         else:
             model.learn(total_timesteps=max_steps*self.num_envs*self.num_episodes_per_env, progress_bar=True, log_interval=1, callback=WandbLoggingCallback(logger))
-            model.save(f'sb3_trained_weight/sac_model/{time_now}')
+            model.save(f'sb3_trained_weight/{algorithm}/{time_now}')
         envs.close()
 
         wandb.finish(exit_code=0)
