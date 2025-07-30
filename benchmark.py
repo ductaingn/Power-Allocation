@@ -17,14 +17,14 @@ if __name__ == "__main__":
     BASE_PATH = args.base_path
     if not os.path.exists(BASE_PATH):
         raise FileNotFoundError(f"Base path {BASE_PATH} does not exist.")
+    print(f"Base path: {BASE_PATH}")
     num_runs = args.num_runs
     scenarios = args.scenarios
     algorithms = args.algorithms
     print(f"Running benchmark with {num_runs} runs, scenarios: {scenarios}, algorithms: {algorithms}")
-    print(f"Base path: {BASE_PATH}")
 
     train_configs:dict = yaml.safe_load(
-        open(os.path.join(BASE_PATH, "/train_config.yaml"))
+        open(os.path.join(BASE_PATH, "train_config.yaml"))
     )
     print(f"Loaded training configurations: {train_configs}")
 
@@ -41,8 +41,8 @@ if __name__ == "__main__":
                     
                     train_configs['env_config']['P_sum'] = P_sum
                     train_configs['env_config']['algorithm'] = algorithm
-                    train_configs['env_config']['h_tilde_path'] = os.path.join(BASE_PATH, f'/environment/scenario_{scenario}/h_tilde.pickle')
-                    train_configs['env_config']['devices_positions_path'] = os.path.join(BASE_PATH, f'/environment/scenario_{scenario}/device_positions.pickle')
+                    train_configs['env_config']['h_tilde_path'] = os.path.join(BASE_PATH, f'environment/scenario_{scenario}/h_tilde.pickle')
+                    train_configs['env_config']['devices_positions_path'] = os.path.join(BASE_PATH, f'environment/scenario_{scenario}/device_positions.pickle')
                     train_configs['env_config']['num_devices'] = 10 if scenario==1 else 15
 
                     trainer = Trainer(train_configs)
