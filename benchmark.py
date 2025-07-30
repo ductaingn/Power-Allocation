@@ -41,8 +41,8 @@ if __name__ == "__main__":
                     
                     train_configs['env_config']['P_sum'] = P_sum
                     train_configs['env_config']['algorithm'] = algorithm
-                    train_configs['env_config']['h_tilde_path'] = os.path.join(BASE_PATH, f'environment/scenario_{scenario}/h_tilde.pickle')
-                    train_configs['env_config']['devices_positions_path'] = os.path.join(BASE_PATH, f'environment/scenario_{scenario}/device_positions.pickle')
+                    train_configs['env_config']['h_tilde_path'] = os.path.join(BASE_PATH, f'environment/data/scenario_{scenario}/h_tilde.pickle')
+                    train_configs['env_config']['devices_positions_path'] = os.path.join(BASE_PATH, f'environment/data/scenario_{scenario}/device_positions.pickle')
                     train_configs['env_config']['num_devices'] = 10 if scenario==1 else 15
 
                     trainer = Trainer(train_configs)
