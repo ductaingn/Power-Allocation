@@ -58,7 +58,11 @@ python train.py
   2. Chạy:
 ```bash
 cd Power-Allocation
-python benchmark.py
+python3 benchmark.py \
+        --base_path "/home/nguyen/Projects/Group ICN/Power Allocation/Source Code" \
+        --num_runs 1 \
+        --scenario 1 \
+        --algorithms Random SACPF SACPA
 ```
 
 ### Đánh giá

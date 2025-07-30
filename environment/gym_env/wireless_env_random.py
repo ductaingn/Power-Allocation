@@ -74,8 +74,6 @@ class WirelessEnvironmentRandom(WirelessEnvironmentBase):
         return _state
     
     def get_action(self, policy_network_output:torch.tensor) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        l_max_estimate = self.estimate_l_max()
-
         if self.algorithm == "Random":
             num_send_packet, power = self.compute_number_send_packet_and_power()
             allocation = self.allocate(num_send_packet)

@@ -47,4 +47,4 @@ if __name__ == "__main__":
 
                     trainer = Trainer(train_configs)
 
-                    trainer.train(run_name=f'{algorithm}_{power}dbm_{runtime}')
+                    trainer.train(run_name=f'{algorithm}_scenario{scenario}_{power}dbm_{runtime}')

@@ -54,8 +54,11 @@ class Trainer:
         self.num_episodes_per_env = train_configs['num_episodes_per_env']
         self.env_config = train_configs['env_config']
         self.seed = train_configs.get('seed', 1)
-        self.device = ("cuda" if torch.cuda.is_available() else "cpu")
-        
+
+        if torch.cuda.is_available():
+            self.device = torch.cuda.get_device_name(0)
+        else:
+            self.device = 'cpu'                
 
     def train(self, run_name:Optional[str]=None):
         max_steps = self.env_config['max_steps']
@@ -83,6 +86,9 @@ class Trainer:
         model = SAC('MlpPolicy', envs, policy_kwargs=policy_kwargs, verbose=1, seed=self.seed, device=self.device, ent_coef="auto", gamma=0.99, tau=0.005, learning_starts=100, learning_rate=get_linear_fn(0.01, 0, 1))
         model.set_logger(logger)
 
+        print(f"Training {algorithm} with {self.num_envs} environments for {self.num_episodes_per_env} episodes each.")
+        print(f"Device: {self.device}, Seed: {self.seed}, Max Steps: {max_steps}")
+
         if algorithm == "Random":
             evaluate_policy(model, envs, n_eval_episodes=1, callback=custom_callback)
             model.save(f'sb3_trained_weight/{algorithm}/{time_now}')
@@ -91,7 +97,7 @@ class Trainer:
             model.set_logger(logger)
             evaluate_policy(model, envs, n_eval_episodes=1, callback=custom_callback)
         else:
-            model.learn(total_timesteps=max_steps*self.num_envs*self.num_episodes_per_env, progress_bar=True, log_interval=1, callback=WandbLoggingCallback(logger))
+            model.learn(total_timesteps=max_steps*self.num_envs*self.num_episodes_per_env, progress_bar=True, log_interval=1, callback=WandbLoggingCallback(logger), learning_start=100)
             model.save(f'sb3_trained_weight/{algorithm}/{time_now}')
         envs.close()
 
