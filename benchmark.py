@@ -7,10 +7,11 @@ import os
 import argparse
 
 parser = argparse.ArgumentParser(description="Benchmark Algorithms in RAORESMIN problem")
-parser.add_argument('--base_path', type=str, required=True, help='Base path for configs and data')
-parser.add_argument('--num_runs', type=int, default=3, help='Number of runs for each configuration')
-parser.add_argument('--scenarios', type=int, nargs='+', default=[1, 2], help='List of scenarios to run')
-parser.add_argument('--algorithms', type=str, nargs='+', default=["Random", "RAQL", "SACPF", "SACPA"], help='List of algorithms to run')
+parser.add_argument('-b', '--base_path', type=str, required=True, help='Base path for configs and data')
+parser.add_argument('-n', '--num_runs', type=int, default=3, help='Number of runs for each configuration')
+parser.add_argument('-s','--scenarios', type=int, nargs='+', default=[1, 2], help='List of scenarios to run')
+parser.add_argument('-p','--powers', type=int, nargs='+', default=[5, 1], help='List of power levels in dBm to run')
+parser.add_argument('-a','--algorithms', type=str, nargs='+', default=["Random", "RAQL", "SACPF", "SACPA"], help='List of algorithms to run')
 args = parser.parse_args()
 
 if __name__ == "__main__":
@@ -18,8 +19,10 @@ if __name__ == "__main__":
     if not os.path.exists(BASE_PATH):
         raise FileNotFoundError(f"Base path {BASE_PATH} does not exist.")
     print(f"Base path: {BASE_PATH}")
+
     num_runs = args.num_runs
     scenarios = args.scenarios
+    powers = args.powers
     algorithms = args.algorithms
     print(f"Running benchmark with {num_runs} runs, scenarios: {scenarios}, algorithms: {algorithms}")
 
@@ -33,10 +36,10 @@ if __name__ == "__main__":
     np.random.seed(seed)
     torch.manual_seed(seed)
 
-    for runtime in range(num_runs):
-        for scenario in [1, 2]:
-            for power in [1, 5]:
-                for algorithm in ["Random", "SACPF", "RAQL", "SACPA"]:
+    for run in range(num_runs):
+        for scenario in scenarios:
+            for power in powers:
+                for algorithm in algorithms:
                     P_sum = pow(10, power/10)*1e-3
                     
                     train_configs['env_config']['P_sum'] = P_sum
@@ -47,4 +50,4 @@ if __name__ == "__main__":
 
                     trainer = Trainer(train_configs)
 
-                    trainer.train(run_name=f'{algorithm}_scenario{scenario}_{power}dbm_{runtime}')
+                    trainer.train(run_name=f'{algorithm}_scenario{scenario}_{power}dbm_{run+1}')

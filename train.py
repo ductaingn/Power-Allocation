@@ -6,6 +6,7 @@ from stable_baselines3 import SAC
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.utils import get_linear_fn
 from environment.gym_env.wireless_env_sacpa import WirelessEnvironmentSACPA
 from environment.gym_env.wireless_env_sacpf import WirelessEnvironmentSACPF
@@ -64,7 +65,10 @@ class Trainer:
         max_steps = self.env_config['max_steps']
         algorithm = self.env_config['algorithm']            
 
-        envs = DummyVecEnv([make_env(config=self.env_config, seed=self.seed+i, algorithm=algorithm) for i in range(self.num_envs)])
+        envs = DummyVecEnv([
+            lambda i=i: Monitor(make_env(config=self.env_config, seed=self.seed+i, algorithm=algorithm)())
+            for i in range(self.num_envs)
+        ])
 
         policy_kwargs = dict(
             features_extractor_class = CustomFeatureExtractor,

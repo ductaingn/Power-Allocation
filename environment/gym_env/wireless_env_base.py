@@ -41,6 +41,12 @@ class WirelessEnvironmentBase(Env):
         # NLoS Path loss - mmWave
         self.NLOS_PATH_LOSS = np.random.normal(0, 8.7, self.max_steps + 1) 
 
+        with open(self.h_tilde_path, 'rb') as f:
+            self.h_tilde = np.array(pickle.load(f))
+
+        with open(self.devices_positions_path, 'rb') as f:
+            self.device_positions = np.array(pickle.load(f))
+
         self.num_sub_channel = self.h_tilde.shape[-1] # implicitly defined
         self.num_beam = self.h_tilde.shape[-1]
 
@@ -76,18 +82,6 @@ class WirelessEnvironmentBase(Env):
             self._init_num_send_packet,
         )
 
-    @property
-    def h_tilde(self) -> np.ndarray:
-        with open(self.h_tilde_path, 'rb') as f:
-            h_tilde = np.array(pickle.load(f))
-        return h_tilde  
-
-    @property
-    def device_positions(self) -> np.ndarray:
-        with open(self.devices_positions_path, 'rb') as f:
-            device_positions = np.array(pickle.load(f))
-        return device_positions
-    
     @property
     def observation_space(self) -> gym.spaces.Space:
         if not hasattr(self, '_observation_space'):
@@ -259,7 +253,7 @@ class WirelessEnvironmentBase(Env):
 
         return average_rate
 
-    def compute_packet_loss_rate(self, num_received_packet:np.ndarray, num_send_packet:np.ndarray) -> np.ndarray:
+    def compute_packet_loss_rate(self, num_received_packet:np.ndarray, num_send_packet:np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:
         '''
         Returns devices packet loss rate on each interfaces, devices packet loss rate on the whole, and system packet loss rate
         '''
@@ -313,6 +307,7 @@ class WirelessEnvironmentBase(Env):
         info['Overall/ Sum Packet loss rate'] = self.sum_packet_loss_rate
         info['Overall/ Average rate/ Sub6GHz'] = self.average_rate[:,0].sum()/(self.num_devices)
         info['Overall/ Average rate/ mmWave'] = self.average_rate[:,1].sum()/(self.num_devices)
+        info['Overall/ Average rate/ Global'] = info['Overall/ Average rate/ Sub6GHz'] + info['Overall/ Average rate/ mmWave']
         info['Overall/ Power usage'] = power.sum()
         
         for k in range(self.num_devices):
@@ -347,7 +342,6 @@ class WirelessEnvironmentBase(Env):
         super().reset(seed=seed)
 
         info = {}
-        self.current_step = 0
         observation = self.state.flatten()
         self.instance_reward = 0.0
         self.reward_qos = 0.0
