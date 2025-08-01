@@ -1,7 +1,8 @@
 import random
 import numpy as np
 import torch
-from typing import Optional, Callable
+import pandas as pd
+from typing import Optional, Callable, Union
 from stable_baselines3 import SAC
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.vec_env import DummyVecEnv
@@ -16,7 +17,8 @@ from architectures import CustomFeatureExtractor
 import yaml
 from datetime import datetime
 import wandb
-from utils.logger import WandbLoggingCallback, custom_callback
+from utils.logger import WandbLoggingCallback, custom_callback, get_log_from_wandb
+from utils.process_results import get_result_table
 
 def exponential_decay(initial_value: float, decay_rate: float) -> Callable[[float], float]:
     """
@@ -46,6 +48,8 @@ def make_env(config, seed, algorithm):
             return WirelessEnvironmentRAQL(**config, seed=seed)
         elif algorithm == "Random":
             return WirelessEnvironmentRandom(**config, seed=seed)
+        else:
+            raise ValueError(f"Unknown algorithm {algorithm}")
     return _init
 
 class Trainer:
@@ -55,13 +59,17 @@ class Trainer:
         self.num_episodes_per_env = train_configs['num_episodes_per_env']
         self.env_config = train_configs['env_config']
         self.seed = train_configs.get('seed', 1)
+        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"                
 
-        if torch.cuda.is_available():
-            self.device = "cuda:0"
-        else:
-            self.device = 'cpu'                
+    def train(self, run_name:Optional[str]=None, tune:bool=False) -> Union[None, pd.DataFrame]:
+        """
+        Train the model with the given configurations.
 
-    def train(self, run_name:Optional[str]=None):
+        :param run_name: Name of the run for logging purposes.
+        :param tune: If True, will tune hyperparameters using Optuna.
+
+        :return: None
+        """
         max_steps = self.env_config['max_steps']
         algorithm = self.env_config['algorithm']            
 
@@ -79,15 +87,35 @@ class Trainer:
             )
         )
 
+        sac_hyperparams:dict = self.train_configs.get('sac_hyperparams', {})
+
         time_now = datetime.now().strftime("SB3-%Y-%m-%d-%H-%M-%S")
 
-        wandb_config = self.train_configs.copy()
+        wandb_run = wandb.init(
+            project=self.train_configs['wandb']['project'], 
+            config=self.train_configs.copy(), 
+            name=run_name,
+        )
 
-        wandb.init(project=self.train_configs['wandb']['project'], config=wandb_config, name=run_name)
+        logger = configure(
+            folder=f"training_log/{time_now}", 
+            format_strings=["stdout","csv"]
+        )
 
-        logger = configure(folder=f"training_log/{time_now}", format_strings=["stdout","csv"])
+        model = SAC(
+            'MlpPolicy', 
+            envs, 
+            policy_kwargs = policy_kwargs, 
+            verbose = 1, 
+            seed = self.seed, 
+            device = self.device, 
+            ent_coef = "auto", 
+            gamma = sac_hyperparams.get("gamma", 0.99), 
+            tau = sac_hyperparams.get("tau", 0.005), 
+            learning_rate = sac_hyperparams.get("learning_rate",get_linear_fn(0.01, 0, 1)),
+            learning_starts = 100, 
+        )
 
-        model = SAC('MlpPolicy', envs, policy_kwargs=policy_kwargs, verbose=1, seed=self.seed, device=self.device, ent_coef="auto", gamma=0.99, tau=0.005, learning_starts=100, learning_rate=get_linear_fn(0.01, 0, 1))
         model.set_logger(logger)
 
         print(f"Training {algorithm} with {self.num_envs} environments for {self.num_episodes_per_env} episodes each.")
@@ -95,18 +123,33 @@ class Trainer:
 
         if algorithm == "Random":
             evaluate_policy(model, envs, n_eval_episodes=1, callback=custom_callback)
-            model.save(f'sb3_trained_weight/{algorithm}/{time_now}')
         elif algorithm == "RAQL":
-            model = SAC('MlpPolicy', envs, verbose=1, seed=self.seed, device=self.device, ent_coef="auto", gamma=0.99, tau=0.005, learning_starts=100, learning_rate=get_linear_fn(0.01, 0, 1))
-            model.set_logger(logger)
+            model = SAC('MlpPolicy', envs)
             evaluate_policy(model, envs, n_eval_episodes=1, callback=custom_callback)
         else:
-            model.learn(total_timesteps=max_steps*self.num_envs*self.num_episodes_per_env, progress_bar=True, log_interval=1, callback=WandbLoggingCallback(logger), learning_start=100)
+            model.learn(
+                total_timesteps=max_steps*self.num_envs*self.num_episodes_per_env,
+                progress_bar=True, 
+                log_interval=1, 
+                callback=WandbLoggingCallback(logger), 
+            )
             model.save(f'sb3_trained_weight/{algorithm}/{time_now}')
+            
         envs.close()
 
         wandb.finish(exit_code=0)
 
+        if tune:
+            results = get_result_table(
+                history_dfs=[get_log_from_wandb(id=wandb_run.id, return_run=False)],
+                num_devices= self.env_config['num_devices']
+            )
+            print("Tuning completed successfully.")
+
+            return results
+        else:
+            print("Training completed successfully.")
+            return None
 
 if __name__ == "__main__":
     train_configs:dict = yaml.safe_load(open("train_config.yaml"))

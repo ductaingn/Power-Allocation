@@ -6,7 +6,7 @@ from train import Trainer
 import os
 import argparse
 
-parser = argparse.ArgumentParser(description="Benchmark Algorithms in RAORESMIN problem")
+parser = argparse.ArgumentParser(description="Benchmark algorithms in RAORESMIN problem")
 parser.add_argument('-b', '--base_path', type=str, required=True, help='Base path for configs and data')
 parser.add_argument('-n', '--num_runs', type=int, default=3, help='Number of runs for each configuration')
 parser.add_argument('-s','--scenarios', type=int, nargs='+', default=[1, 2], help='List of scenarios to run')
@@ -24,7 +24,7 @@ if __name__ == "__main__":
     scenarios = args.scenarios
     powers = args.powers
     algorithms = args.algorithms
-    print(f"Running benchmark with {num_runs} runs, scenarios: {scenarios}, algorithms: {algorithms}")
+    print(f"Running benchmark with {num_runs} runs, scenarios: {scenarios}, power levels: {powers}, algorithms: {algorithms}")
 
     train_configs:dict = yaml.safe_load(
         open(os.path.join(BASE_PATH, "train_config.yaml"))
